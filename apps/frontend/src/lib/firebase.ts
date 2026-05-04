@@ -18,30 +18,58 @@ const config = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
+/**
+ * When the Firebase config is absent (e.g. the CI E2E preview build that runs
+ * without real envs, or a dev forgets `.env.local`) we must not crash the
+ * whole app on boot. Instead: render the shell + show login as "sign-in
+ * unavailable". This predicate gates every call site.
+ */
+export const isFirebaseConfigured = (): boolean =>
+  Boolean(config.apiKey && config.projectId && config.appId);
+
 let app: FirebaseApp | null = null;
 
-const getApp = (): FirebaseApp => {
+const getApp = (): FirebaseApp | null => {
+  if (!isFirebaseConfigured()) return null;
   if (app) return app;
   app = getApps()[0] ?? initializeApp(config);
   return app;
 };
 
-export const auth = (): Auth => getAuth(getApp());
+export const auth = (): Auth | null => {
+  const a = getApp();
+  return a ? getAuth(a) : null;
+};
 
 export const googleSignIn = async (): Promise<User> => {
+  const a = auth();
+  if (!a) throw new Error("Firebase is not configured in this environment.");
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
-  const cred = await signInWithPopup(auth(), provider);
+  const cred = await signInWithPopup(a, provider);
   return cred.user;
 };
 
-export const signOut = (): Promise<void> => fbSignOut(auth());
+export const signOut = async (): Promise<void> => {
+  const a = auth();
+  if (!a) return;
+  await fbSignOut(a);
+};
 
-export const onAuthStateChanged = (cb: (user: User | null) => void): (() => void) =>
-  fbOnAuthStateChanged(auth(), cb);
+export const onAuthStateChanged = (cb: (user: User | null) => void): (() => void) => {
+  const a = auth();
+  if (!a) {
+    // Immediately emit "no user" so the UI settles into its unauthed state.
+    queueMicrotask(() => cb(null));
+    return () => undefined;
+  }
+  return fbOnAuthStateChanged(a, cb);
+};
 
 export const getIdToken = async (): Promise<string | null> => {
-  const u = auth().currentUser;
+  const a = auth();
+  if (!a) return null;
+  const u = a.currentUser;
   if (!u) return null;
   return u.getIdToken();
 };

@@ -3,9 +3,16 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
-  "storage": {
-    "rules": "storage.rules"
-  },
+  "storage": [
+    {
+      "bucket": "muga-staging-cover-art",
+      "rules": "storage.rules"
+    },
+    {
+      "bucket": "muga-production-cover-art",
+      "rules": "storage.rules"
+    }
+  ],
   "hosting": [
     {
       "target": "app",

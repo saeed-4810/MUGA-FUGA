@@ -13,10 +13,38 @@ env:
   NODE_VERSION: "20"
   PNPM_VERSION: "9.12.0"
   GCP_REGION: europe-west1
+  GCP_PROJECT: muga-staging
+  GCP_PROJECT_NUMBER: "438419642765"
+  ARTIFACT_REPO: muga
+  SERVICE: muga-backend
+  # Firebase Web app config (public — domain-restricted by Firebase Auth).
+  VITE_FIREBASE_API_KEY: AIzaSyDXT-A5PCyAW39kK8LLNWeUKEaGeEWlrio
+  VITE_FIREBASE_AUTH_DOMAIN: muga-staging.firebaseapp.com
+  VITE_FIREBASE_PROJECT_ID: muga-staging
+  VITE_FIREBASE_APP_ID: "1:438419642765:web:64ee9c4956469a129945c4"
+  VITE_FIREBASE_STORAGE_BUCKET: muga-staging-cover-art
 
 jobs:
+  # Gate: refuse to deploy if CI on the same SHA isn't green.
+  wait-for-ci:
+    name: Wait for CI green
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: Wait for CI build check
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: build
+          ref: ${{ github.sha }}
+          timeoutSeconds: 900
+          intervalSeconds: 15
+
   deploy-frontend:
     name: Frontend → Firebase Hosting (staging)
+    needs: wait-for-ci
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,38 +57,41 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-          cache-dependency-path: code/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install
-        working-directory: code
         run: pnpm install --frozen-lockfile
-      - name: Build frontend (staging env)
-        working-directory: code
-        env:
-          VITE_API_URL: https://api.staging.muga.app
-          VITE_FIREBASE_API_KEY: ${{ secrets.STAGING_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: muga-staging
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.STAGING_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.STAGING_FIREBASE_APP_ID }}
-          VITE_SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN_FRONTEND }}
-          VITE_SENTRY_ENVIRONMENT: staging
-          VITE_APP_VERSION: ${{ github.sha }}
-        run: pnpm --filter @muga/frontend build
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_DEPLOY_SA_STAGING }}
-      - name: Deploy hosting (staging target)
-        working-directory: code
+          workload_identity_provider: projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deploy@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Fetch Sentry DSN (frontend)
+        id: secrets
+        run: |
+          echo "SENTRY_DSN=$(gcloud secrets versions access latest --secret=sentry-dsn-frontend --project=${{ env.GCP_PROJECT }})" >> $GITHUB_OUTPUT
+      - name: Build frontend (staging env)
+        env:
+          VITE_API_URL: https://muga-staging.web.app/api
+          VITE_FIREBASE_API_KEY: ${{ env.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ env.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ env.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ env.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_APP_ID: ${{ env.VITE_FIREBASE_APP_ID }}
+          VITE_SENTRY_DSN: ${{ steps.secrets.outputs.SENTRY_DSN }}
+          VITE_SENTRY_ENVIRONMENT: staging
+          VITE_APP_VERSION: ${{ github.sha }}
+        run: pnpm --filter @muga/frontend build
+      - name: Deploy Firebase (hosting + firestore + storage)
         run: |
           npx -y firebase-tools@latest deploy \
             --only hosting:app,firestore:rules,firestore:indexes,storage \
-            --project muga-staging \
+            --project ${{ env.GCP_PROJECT }} \
             --non-interactive
 
   deploy-backend:
     name: Backend → Cloud Run (staging)
+    needs: wait-for-ci
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -70,37 +101,101 @@ jobs:
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_DEPLOY_SA_STAGING }}
+          workload_identity_provider: projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deploy@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Configure Docker
+      - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
       - name: Build & push image
-        working-directory: code
         run: |
-          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/muga-staging/muga/muga-backend:${{ github.sha }}"
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
           docker build -f apps/backend/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
-      - name: Deploy to Cloud Run
+      - name: Deploy to Cloud Run (with Secret Manager mounts)
         run: |
-          gcloud run deploy muga-backend \
-            --project muga-staging \
-            --region ${{ env.GCP_REGION }} \
-            --image "${IMAGE}" \
+          gcloud run deploy ${{ env.SERVICE }} \
+            --project=${{ env.GCP_PROJECT }} \
+            --region=${{ env.GCP_REGION }} \
+            --image="${IMAGE}" \
+            --service-account=muga-backend@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com \
             --allow-unauthenticated \
-            --port 8080 \
-            --cpu 1 --memory 512Mi \
-            --max-instances 5 \
-            --set-env-vars NODE_ENV=production,FIREBASE_PROJECT_ID=muga-staging,FIREBASE_STORAGE_BUCKET=muga-staging.appspot.com,SENTRY_ENVIRONMENT=staging,SENTRY_DSN=${{ secrets.STAGING_SENTRY_DSN_BACKEND }},INITIAL_ADMIN_EMAILS=${{ secrets.STAGING_INITIAL_ADMIN_EMAILS }},CORS_ALLOWED_ORIGINS=https://staging.muga.app,SLACK_WEBHOOK_URL=${{ secrets.STAGING_SLACK_WEBHOOK_URL }},ALERT_READY_LATENCY_BUDGET_MS=2000
+            --port=8080 \
+            --cpu=1 --memory=512Mi \
+            --max-instances=5 \
+            --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.GCP_PROJECT }},FIREBASE_STORAGE_BUCKET=muga-staging-cover-art,SENTRY_ENVIRONMENT=staging,CORS_ALLOWED_ORIGINS=https://muga-staging.web.app,ALERT_READY_LATENCY_BUDGET_MS=2000" \
+            --set-secrets="SENTRY_DSN=sentry-dsn-backend:latest,SLACK_WEBHOOK_URL=slack-webhook-url:latest,INITIAL_ADMIN_EMAILS=initial-admin-emails:latest"
+
+  e2e-staging:
+    name: E2E — Playwright against live staging
+    needs: [deploy-frontend, deploy-backend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        working-directory: apps/frontend
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Wait for staging to be ready
+        run: |
+          # Cloud Run + Hosting CDN sometimes serve stale during propagation.
+          # Poll /health up to 60s.
+          for i in $(seq 1 12); do
+            if curl -fsSL "https://muga-staging.web.app/api/health" > /dev/null 2>&1; then
+              echo "Staging is up."
+              exit 0
+            fi
+            echo "Attempt $i: staging not ready yet, sleeping 5s..."
+            sleep 5
+          done
+          echo "Staging /api/health failed to respond within 60s."
+          exit 1
+      - name: Run Playwright against live staging
+        working-directory: apps/frontend
+        env:
+          E2E_BASE_URL: https://muga-staging.web.app
+        run: pnpm e2e
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-staging
+          path: apps/frontend/playwright-report
+          retention-days: 14
 
   notify-on-failure:
     name: Alert — staging deploy failure
-    needs: [deploy-frontend, deploy-backend]
+    needs: [deploy-frontend, deploy-backend, e2e-staging]
     if: failure()
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deploy@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Fetch Slack webhook
+        id: slack
+        run: |
+          WEBHOOK=$(gcloud secrets versions access latest --secret=slack-webhook-url --project=${{ env.GCP_PROJECT }} 2>/dev/null || echo "")
+          if [ "$WEBHOOK" = "PLACEHOLDER_REPLACE_ME" ] || [ -z "$WEBHOOK" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "webhook=$WEBHOOK" >> $GITHUB_OUTPUT
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
       - name: Slack notify
+        if: steps.slack.outputs.skip == 'false'
         uses: slackapi/slack-github-action@v1.27.0
         with:
           payload: |
@@ -116,5 +211,5 @@ jobs:
               }]
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.STAGING_SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ steps.slack.outputs.webhook }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

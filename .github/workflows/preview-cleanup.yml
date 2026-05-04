@@ -1,0 +1,79 @@
+name: Preview — cleanup
+
+# Triggers that delete the preview channel:
+#   1. PR closed (merged or not) — always clean up.
+#   2. `preview` label removed — user explicitly wants the preview gone.
+on:
+  pull_request:
+    types: [closed, unlabeled]
+
+env:
+  GCP_PROJECT: muga-staging
+  GCP_PROJECT_NUMBER: "438419642765"
+
+jobs:
+  cleanup:
+    name: Delete preview channel
+    # Only run when:
+    #   - the PR was closed, OR
+    #   - the removed label is specifically `preview`
+    # (other unlabel events — e.g. removing `ready-for-review` — are ignored)
+    if: >
+      github.event.action == 'closed' ||
+      (github.event.action == 'unlabeled' && github.event.label.name == 'preview')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deploy@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Delete preview channel
+        id: delete
+        run: |
+          CHANNEL_ID="pr-${{ github.event.number }}"
+          # --force skips the "are you sure" prompt.
+          # The `|| true` tolerates "channel not found" (e.g. a PR opened
+          # before this workflow existed, one that never got the preview
+          # label, or one closed twice).
+          npx -y firebase-tools@latest hosting:channel:delete "$CHANNEL_ID" \
+            --project=${{ env.GCP_PROJECT }} \
+            --site=muga-staging \
+            --force 2>&1 | tee /tmp/firebase-delete.log || true
+          if grep -q "Successfully deleted channel" /tmp/firebase-delete.log; then
+            echo "existed=true" >> $GITHUB_OUTPUT
+          else
+            echo "existed=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Update PR comment (label removed path only)
+        if: github.event.action == 'unlabeled' && steps.delete.outputs.existed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === "Bot" && c.body && c.body.startsWith("### 🚀 Preview deployed")
+            );
+            if (existing) {
+              const body = [
+                `### 🧹 Preview channel deleted`,
+                ``,
+                `The \`preview\` label was removed — the hosting channel \`pr-${context.issue.number}\` has been torn down.`,
+                `Re-add the label to redeploy.`,
+              ].join("\n");
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            }

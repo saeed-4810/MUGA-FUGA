@@ -1,1 +1,2 @@
 pnpm exec lint-staged
+sh .husky/scan-secrets.sh

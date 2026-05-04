@@ -11,7 +11,11 @@ import { test, expect } from "@playwright/test";
 test("E-SHELL-001 — landing renders with theme toggle and locale switcher", async ({ page }) => {
   await page.goto("/");
   // Login redirect not asserted at this layer because firebase is not wired in preview.
-  await expect(page.getByText("MUGA").first()).toBeVisible();
+  // Use the visible filter so this passes on both desktop (sidebar MUGA) and
+  // mobile (topbar MUGA — the sidebar copy is `hidden lg:block` on mobile).
+  await expect(
+    page.getByText("MUGA", { exact: true }).filter({ visible: true }).first()
+  ).toBeVisible();
 
   // Theme toggle is reachable and toggles the html.dark class
   const toggle = page.getByTestId("theme-toggle");

@@ -14,14 +14,55 @@ env:
   NODE_VERSION: "20"
   PNPM_VERSION: "9.12.0"
   GCP_REGION: europe-west1
+  GCP_PROJECT: muga-production
+  GCP_PROJECT_NUMBER: "524228723694"
+  ARTIFACT_REPO: muga
+  SERVICE: muga-backend
+  # PagerDuty Events API v2 endpoint. US region: events.pagerduty.com.
+  # EU region: events.eu.pagerduty.com. Swap here based on your PD org region.
+  PAGERDUTY_EVENTS_URL: "https://events.eu.pagerduty.com/v2/enqueue"
+  # Firebase Web app config (public — domain-restricted by Firebase Auth).
+  VITE_FIREBASE_API_KEY: AIzaSyA83pvqqaro-AbDGx-8eK0IVihJov9u1kI
+  VITE_FIREBASE_AUTH_DOMAIN: muga-production.firebaseapp.com
+  VITE_FIREBASE_PROJECT_ID: muga-production
+  VITE_FIREBASE_APP_ID: "1:524228723694:web:f73b069f91784933d684ff"
+  VITE_FIREBASE_STORAGE_BUCKET: muga-production-cover-art
 
 jobs:
+  # Gate: the tagged SHA must already have CI + docker green on main.
+  # Since tags are cut from main, the CI run on that SHA will normally exist
+  # before the tag is pushed. If not, this job polls for up to 15 minutes.
+  wait-for-ci:
+    name: Wait for CI + docker green
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: Wait for CI build check
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: build
+          ref: ${{ github.sha }}
+          timeoutSeconds: 900
+          intervalSeconds: 15
+      - name: Wait for CI docker check
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: docker
+          ref: ${{ github.sha }}
+          timeoutSeconds: 900
+          intervalSeconds: 15
+
   deploy-frontend:
     name: Frontend → Firebase Hosting (production)
+    needs: wait-for-ci
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://muga.app
+      url: https://muga-production.web.app
     permissions:
       contents: read
       id-token: write
@@ -33,38 +74,41 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-          cache-dependency-path: code/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install
-        working-directory: code
         run: pnpm install --frozen-lockfile
-      - name: Build frontend (production env)
-        working-directory: code
-        env:
-          VITE_API_URL: https://api.muga.app
-          VITE_FIREBASE_API_KEY: ${{ secrets.PROD_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.PROD_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: muga-production
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.PROD_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.PROD_FIREBASE_APP_ID }}
-          VITE_SENTRY_DSN: ${{ secrets.PROD_SENTRY_DSN_FRONTEND }}
-          VITE_SENTRY_ENVIRONMENT: production
-          VITE_APP_VERSION: ${{ github.ref_name }}
-        run: pnpm --filter @muga/frontend build
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_DEPLOY_SA_PRODUCTION }}
-      - name: Deploy hosting (production target)
-        working-directory: code
+          workload_identity_provider: projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deploy@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Fetch Sentry DSN (frontend)
+        id: secrets
+        run: |
+          echo "SENTRY_DSN=$(gcloud secrets versions access latest --secret=sentry-dsn-frontend --project=${{ env.GCP_PROJECT }})" >> $GITHUB_OUTPUT
+      - name: Build frontend (production env)
+        env:
+          VITE_API_URL: https://muga-production.web.app/api
+          VITE_FIREBASE_API_KEY: ${{ env.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ env.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ env.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ env.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_APP_ID: ${{ env.VITE_FIREBASE_APP_ID }}
+          VITE_SENTRY_DSN: ${{ steps.secrets.outputs.SENTRY_DSN }}
+          VITE_SENTRY_ENVIRONMENT: production
+          VITE_APP_VERSION: ${{ github.ref_name }}
+        run: pnpm --filter @muga/frontend build
+      - name: Deploy Firebase (hosting + firestore + storage)
         run: |
           npx -y firebase-tools@latest deploy \
             --only hosting:app,firestore:rules,firestore:indexes,storage \
-            --project muga-production \
+            --project ${{ env.GCP_PROJECT }} \
             --non-interactive
 
   deploy-backend:
     name: Backend → Cloud Run (production)
+    needs: wait-for-ci
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -76,38 +120,92 @@ jobs:
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_DEPLOY_SA_PRODUCTION }}
+          workload_identity_provider: projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deploy@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Configure Docker
+      - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
       - name: Build & push image
-        working-directory: code
         run: |
-          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/muga-production/muga/muga-backend:${{ github.ref_name }}"
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE }}:${{ github.ref_name }}"
           docker build -f apps/backend/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
-      - name: Deploy to Cloud Run
+      - name: Deploy to Cloud Run (with Secret Manager mounts)
         run: |
-          gcloud run deploy muga-backend \
-            --project muga-production \
-            --region ${{ env.GCP_REGION }} \
-            --image "${IMAGE}" \
+          gcloud run deploy ${{ env.SERVICE }} \
+            --project=${{ env.GCP_PROJECT }} \
+            --region=${{ env.GCP_REGION }} \
+            --image="${IMAGE}" \
+            --service-account=muga-backend@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com \
             --allow-unauthenticated \
-            --port 8080 \
-            --cpu 1 --memory 512Mi \
-            --min-instances 1 \
-            --max-instances 20 \
-            --set-env-vars NODE_ENV=production,FIREBASE_PROJECT_ID=muga-production,FIREBASE_STORAGE_BUCKET=muga-production.appspot.com,SENTRY_ENVIRONMENT=production,SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN_BACKEND }},INITIAL_ADMIN_EMAILS=${{ secrets.PROD_INITIAL_ADMIN_EMAILS }},CORS_ALLOWED_ORIGINS=https://muga.app,SLACK_WEBHOOK_URL=${{ secrets.PROD_SLACK_WEBHOOK_URL }},PAGERDUTY_INTEGRATION_KEY=${{ secrets.PROD_PAGERDUTY_INTEGRATION_KEY }},ALERT_READY_LATENCY_BUDGET_MS=1500
+            --port=8080 \
+            --cpu=1 --memory=512Mi \
+            --min-instances=1 --max-instances=20 \
+            --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.GCP_PROJECT }},FIREBASE_STORAGE_BUCKET=muga-production-cover-art,SENTRY_ENVIRONMENT=production,CORS_ALLOWED_ORIGINS=https://muga-production.web.app,ALERT_READY_LATENCY_BUDGET_MS=1500" \
+            --set-secrets="SENTRY_DSN=sentry-dsn-backend:latest,SLACK_WEBHOOK_URL=slack-webhook-url:latest,INITIAL_ADMIN_EMAILS=initial-admin-emails:latest,PAGERDUTY_INTEGRATION_KEY=pagerduty-integration-key:latest"
+
+  smoke-production:
+    name: Smoke test — production
+    needs: [deploy-frontend, deploy-backend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait + probe /health
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsSL "https://muga-production.web.app/api/health" | grep -q '"status":"ok"'; then
+              echo "Production /api/health reports ok."
+              break
+            fi
+            if [ "$i" = "12" ]; then
+              echo "Production /api/health failed to respond ok within 60s."
+              exit 1
+            fi
+            sleep 5
+          done
+      - name: Probe /api/openapi.json
+        run: |
+          curl -fsSL "https://muga-production.web.app/api/openapi.json" \
+            | jq -e '.openapi | startswith("3.")' > /dev/null
+      - name: Probe homepage returns 200 + MUGA brand
+        run: |
+          BODY=$(curl -fsSL "https://muga-production.web.app/")
+          echo "$BODY" | grep -q "MUGA" || { echo "Homepage missing MUGA brand"; exit 1; }
 
   notify-on-failure:
     name: Alert — production deploy failure (page on-call)
-    needs: [deploy-frontend, deploy-backend]
+    needs: [deploy-frontend, deploy-backend, smoke-production]
     if: failure()
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deploy@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Fetch alerting secrets
+        id: alerts
+        run: |
+          SLACK=$(gcloud secrets versions access latest --secret=slack-webhook-url --project=${{ env.GCP_PROJECT }} 2>/dev/null || echo "")
+          PD=$(gcloud secrets versions access latest --secret=pagerduty-integration-key --project=${{ env.GCP_PROJECT }} 2>/dev/null || echo "")
+          if [ "$SLACK" = "PLACEHOLDER_REPLACE_ME" ] || [ -z "$SLACK" ]; then
+            echo "slack_skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "slack_webhook=$SLACK" >> $GITHUB_OUTPUT
+            echo "slack_skip=false" >> $GITHUB_OUTPUT
+          fi
+          if [ "$PD" = "PLACEHOLDER_REPLACE_ME" ] || [ -z "$PD" ]; then
+            echo "pd_skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "pd_key=$PD" >> $GITHUB_OUTPUT
+            echo "pd_skip=false" >> $GITHUB_OUTPUT
+          fi
       - name: Slack notify
+        if: steps.alerts.outputs.slack_skip == 'false'
         uses: slackapi/slack-github-action@v1.27.0
         with:
           payload: |
@@ -123,16 +221,18 @@ jobs:
               }]
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.PROD_SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ steps.alerts.outputs.slack_webhook }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
       - name: PagerDuty trigger
-        if: ${{ secrets.PROD_PAGERDUTY_INTEGRATION_KEY != '' }}
+        if: steps.alerts.outputs.pd_skip == 'false'
+        env:
+          PD_KEY: ${{ steps.alerts.outputs.pd_key }}
         run: |
-          curl -fsSL -X POST "https://events.pagerduty.com/v2/enqueue" \
+          curl -fsSL -X POST "${{ env.PAGERDUTY_EVENTS_URL }}" \
             -H "content-type: application/json" \
             -d @- <<EOF
           {
-            "routing_key": "${{ secrets.PROD_PAGERDUTY_INTEGRATION_KEY }}",
+            "routing_key": "${PD_KEY}",
             "event_action": "trigger",
             "payload": {
               "summary": "MUGA production deploy failed: ${{ github.ref_name }}",
