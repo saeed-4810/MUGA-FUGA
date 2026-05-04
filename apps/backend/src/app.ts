@@ -55,10 +55,14 @@ export const buildApp = (options: BuildAppOptions = {}): Express => {
     })
   );
 
-  app.use(healthRouter(env));
+  // All routers mount under /api so Firebase Hosting's /api/** rewrite
+  // forwards requests transparently. docsRouter already registers
+  // /api/docs + /api/openapi.json internally (to match the openapi spec),
+  // so it mounts at root to avoid /api/api/docs.
+  app.use("/api", healthRouter(env));
   app.use(docsRouter());
-  app.use("/me", meRouter(env));
-  app.use("/products", productsRouter(env));
+  app.use("/api/me", meRouter(env));
+  app.use("/api/products", productsRouter(env));
 
   app.use(notFoundHandler);
   app.use(

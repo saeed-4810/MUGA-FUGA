@@ -152,13 +152,15 @@ jobs:
     steps:
       - name: Wait + probe /health
         run: |
-          for i in $(seq 1 12); do
+          # Cloud Run cold starts + Hosting CDN propagation can take up to 2
+          # minutes after a fresh deploy. Poll /api/health up to 24×5s=120s.
+          for i in $(seq 1 24); do
             if curl -fsSL "https://muga-production.web.app/api/health" | grep -q '"status":"ok"'; then
               echo "Production /api/health reports ok."
               break
             fi
-            if [ "$i" = "12" ]; then
-              echo "Production /api/health failed to respond ok within 60s."
+            if [ "$i" = "24" ]; then
+              echo "Production /api/health failed to respond ok within 120s."
               exit 1
             fi
             sleep 5

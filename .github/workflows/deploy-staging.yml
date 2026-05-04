@@ -144,9 +144,9 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Wait for staging to be ready
         run: |
-          # Cloud Run + Hosting CDN sometimes serve stale during propagation.
-          # Poll /health up to 60s.
-          for i in $(seq 1 12); do
+          # Cloud Run cold starts + Hosting CDN propagation can take up to 2
+          # minutes after a fresh deploy. Poll /api/health up to 24×5s=120s.
+          for i in $(seq 1 24); do
             if curl -fsSL "https://muga-staging.web.app/api/health" > /dev/null 2>&1; then
               echo "Staging is up."
               exit 0
@@ -154,7 +154,7 @@ jobs:
             echo "Attempt $i: staging not ready yet, sleeping 5s..."
             sleep 5
           done
-          echo "Staging /api/health failed to respond within 60s."
+          echo "Staging /api/health failed to respond within 120s."
           exit 1
       - name: Run Playwright against live staging
         working-directory: apps/frontend
