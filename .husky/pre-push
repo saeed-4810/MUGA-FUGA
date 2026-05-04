@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+# MUGA pre-push gate — runs the full quality gate before publishing commits.
+# Mirrors the CI pipeline so bad pushes never reach the remote.
+#
+# Gates (in order — fail-fast):
+#   1. Lint      — pnpm lint         (ESLint --max-warnings=0 across workspaces)
+#   2. Typecheck — pnpm typecheck    (tsc --noEmit across workspaces)
+#   3. Tests     — pnpm test:ci      (vitest with 100% coverage threshold)
+#
+# Bypass policy (OPERATING_DOR_DOD.md §10.6): --no-verify requires written
+# approval from Backend or Scrum Master + a Decision Log entry.
+set -e
+
+echo "▶ pre-push: lint"
+pnpm lint
+
+echo "▶ pre-push: typecheck"
+pnpm typecheck
+
+echo "▶ pre-push: test (coverage gate — 100% threshold enforced)"
+pnpm test:ci
+
+echo "✅ pre-push: all gates passed"

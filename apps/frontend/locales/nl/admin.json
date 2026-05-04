@@ -1,0 +1,22 @@
+{
+  "queue": {
+    "title": "Goedkeuringswachtrij",
+    "subtitle": "Keur openstaande producten goed of af.",
+    "empty": {
+      "title": "Inbox leeg",
+      "body": "Er is op dit moment niets te beoordelen."
+    },
+    "columns": {
+      "owner": "Eigenaar",
+      "created": "Aangemaakt",
+      "actions": "Acties"
+    },
+    "actions": {
+      "approve": "Goedkeuren",
+      "reject": "Afwijzen"
+    }
+  },
+  "reject": {
+    "promptReason": "Reden voor afwijzing?"
+  }
+}

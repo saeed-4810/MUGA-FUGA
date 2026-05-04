@@ -1,0 +1,9 @@
+type: slack
+displayName: "MUGA Slack #muga-alerts (production)"
+description: "Slack channel for production notify-level alerts"
+labels:
+  channel_name: "#muga-alerts"
+  url: "${SLACK_WEBHOOK_URL_PROD}"
+userLabels:
+  environment: production
+  team: muga

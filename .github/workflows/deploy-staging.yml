@@ -1,0 +1,120 @@
+name: Deploy — Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9.12.0"
+  GCP_REGION: europe-west1
+
+jobs:
+  deploy-frontend:
+    name: Frontend → Firebase Hosting (staging)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: code/pnpm-lock.yaml
+      - name: Install
+        working-directory: code
+        run: pnpm install --frozen-lockfile
+      - name: Build frontend (staging env)
+        working-directory: code
+        env:
+          VITE_API_URL: https://api.staging.muga.app
+          VITE_FIREBASE_API_KEY: ${{ secrets.STAGING_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: muga-staging
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.STAGING_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.STAGING_FIREBASE_APP_ID }}
+          VITE_SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN_FRONTEND }}
+          VITE_SENTRY_ENVIRONMENT: staging
+          VITE_APP_VERSION: ${{ github.sha }}
+        run: pnpm --filter @muga/frontend build
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_STAGING }}
+      - name: Deploy hosting (staging target)
+        working-directory: code
+        run: |
+          npx -y firebase-tools@latest deploy \
+            --only hosting:app,firestore:rules,firestore:indexes,storage \
+            --project muga-staging \
+            --non-interactive
+
+  deploy-backend:
+    name: Backend → Cloud Run (staging)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_STAGING }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+      - name: Build & push image
+        working-directory: code
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/muga-staging/muga/muga-backend:${{ github.sha }}"
+          docker build -f apps/backend/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy muga-backend \
+            --project muga-staging \
+            --region ${{ env.GCP_REGION }} \
+            --image "${IMAGE}" \
+            --allow-unauthenticated \
+            --port 8080 \
+            --cpu 1 --memory 512Mi \
+            --max-instances 5 \
+            --set-env-vars NODE_ENV=production,FIREBASE_PROJECT_ID=muga-staging,FIREBASE_STORAGE_BUCKET=muga-staging.appspot.com,SENTRY_ENVIRONMENT=staging,SENTRY_DSN=${{ secrets.STAGING_SENTRY_DSN_BACKEND }},INITIAL_ADMIN_EMAILS=${{ secrets.STAGING_INITIAL_ADMIN_EMAILS }},CORS_ALLOWED_ORIGINS=https://staging.muga.app,SLACK_WEBHOOK_URL=${{ secrets.STAGING_SLACK_WEBHOOK_URL }},ALERT_READY_LATENCY_BUDGET_MS=2000
+
+  notify-on-failure:
+    name: Alert — staging deploy failure
+    needs: [deploy-frontend, deploy-backend]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack notify
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload: |
+            {
+              "attachments": [{
+                "color": "#f5a623",
+                "title": "[NOTIFY] CI deploy-staging failed",
+                "text": "Workflow ${{ github.workflow }} run ${{ github.run_id }} failed on ${{ github.ref_name }}.",
+                "fields": [
+                  { "title": "actor", "value": "${{ github.actor }}", "short": true },
+                  { "title": "sha", "value": "${{ github.sha }}", "short": true }
+                ]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.STAGING_SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

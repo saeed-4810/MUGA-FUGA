@@ -1,0 +1,19 @@
+{
+  "projects": {
+    "staging": "muga-staging",
+    "production": "muga-production",
+    "default": "muga-staging"
+  },
+  "targets": {
+    "muga-staging": {
+      "hosting": {
+        "app": ["muga-staging"]
+      }
+    },
+    "muga-production": {
+      "hosting": {
+        "app": ["muga-production"]
+      }
+    }
+  }
+}

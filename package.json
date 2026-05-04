@@ -1,0 +1,39 @@
+{
+  "name": "muga",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --aggregate-output dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r --aggregate-output lint",
+    "lint:fix": "pnpm -r --aggregate-output lint:fix",
+    "typecheck": "pnpm -r --aggregate-output typecheck",
+    "test": "pnpm -r --aggregate-output test",
+    "test:ci": "pnpm -r --aggregate-output test:ci",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky",
+    "emulators": "firebase emulators:start"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "@typescript-eslint/eslint-plugin": "^8.10.0",
+    "@typescript-eslint/parser": "^8.10.0",
+    "eslint": "^9.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "globals": "^15.11.0",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "typescript": "^5.6.3"
+  }
+}

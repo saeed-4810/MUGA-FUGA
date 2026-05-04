@@ -1,0 +1,22 @@
+{
+  "queue": {
+    "title": "Approval queue",
+    "subtitle": "Approve or reject pending product submissions.",
+    "empty": {
+      "title": "Inbox zero",
+      "body": "Nothing to review right now."
+    },
+    "columns": {
+      "owner": "Owner",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "actions": {
+      "approve": "Approve",
+      "reject": "Reject"
+    }
+  },
+  "reject": {
+    "promptReason": "Reason for rejection?"
+  }
+}

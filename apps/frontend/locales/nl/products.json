@@ -1,0 +1,43 @@
+{
+  "list": {
+    "title": "Producten",
+    "subtitle": "Bekijk de muziekcatalogus.",
+    "actions": { "create": "Product aanmaken" },
+    "empty": {
+      "title": "Nog geen producten",
+      "body": "Wees de eerste die een album of single aan de catalogus toevoegt."
+    },
+    "errors": {
+      "load": "Kon producten niet laden ({{code}})."
+    },
+    "coverAlt": "Hoes van {{name}}",
+    "columns": {
+      "name": "Naam",
+      "artist": "Artiest"
+    }
+  },
+  "create": {
+    "title": "Product aanmaken",
+    "subtitle": "Dien een nieuw muziekproduct in. Inzendingen van klanten wachten op goedkeuring door een beheerder.",
+    "fields": {
+      "name": "Productnaam",
+      "artistName": "Artiestennaam",
+      "coverArt": "Hoes",
+      "coverHint": "JPEG, PNG, WebP of AVIF — tot 5 MB."
+    },
+    "previewAlt": "Voorbeeld van de hoes",
+    "actions": {
+      "cancel": "Annuleren",
+      "submit": "Indienen",
+      "submitting": "Bezig met indienen…"
+    },
+    "errors": {
+      "coverRequired": "Kies een afbeelding voor de hoes."
+    }
+  },
+  "status": {
+    "pending": "In behandeling",
+    "published": "Gepubliceerd",
+    "rejected": "Afgewezen"
+  }
+}

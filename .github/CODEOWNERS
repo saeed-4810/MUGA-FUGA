@@ -1,0 +1,50 @@
+####################
+# MUGA CODEOWNERS
+#
+# Each PR is auto-requested for review based on changed paths. CODEOWNERS
+# is the source of truth for the per-role review gate in
+# OPERATING_DOR_DOD.md §10.5.
+#
+# Replace @muga/<role> placeholders with real GitHub usernames or
+# team handles before opening the repo.
+####################
+
+# Default — Scrum Master receives any change without a more specific match
+*                                  @muga/scrum-master
+
+# Backend
+/code/apps/backend/**              @muga/backend
+/code/firestore.*                  @muga/backend
+/code/storage.rules                @muga/backend
+/code/firebase.json                @muga/backend
+/code/.firebaserc                  @muga/backend
+/code/.github/**                   @muga/backend
+/code/tsconfig.base.json           @muga/backend @muga/frontend
+/code/eslint.config.js             @muga/backend @muga/frontend
+/code/.prettierrc.json             @muga/backend @muga/frontend
+/code/.commitlintrc.json           @muga/backend @muga/scrum-master
+
+# Frontend (excluding e2e/* which is reviewed by QA)
+/code/apps/frontend/**             @muga/frontend
+/code/apps/frontend/e2e/**         @muga/qa @muga/frontend
+/code/apps/frontend/locales/**     @muga/ux @muga/frontend
+
+# QA
+**/*.test.ts                       @muga/qa
+**/*.test.tsx                      @muga/qa
+**/*.spec.ts                       @muga/qa
+**/vitest.config.ts                @muga/qa @muga/backend
+**/playwright.config.ts            @muga/qa @muga/frontend
+
+# Product / UX / Governance docs
+/AGENTS.md                         @muga/product
+/docs/product/**                   @muga/product
+/docs/ux/**                        @muga/ux
+/docs/qa/**                        @muga/qa
+/docs/api/**                       @muga/backend
+/docs/adr/**                       @muga/backend
+/docs/governance/**                @muga/scrum-master
+/OPERATING_DOR_DOD.md              @muga/scrum-master @muga/backend
+/WAY_OF_WORKING.md                 @muga/scrum-master
+/TEAM_BUILD.md                     @muga/scrum-master @muga/product
+/.tasks/**                         @muga/scrum-master

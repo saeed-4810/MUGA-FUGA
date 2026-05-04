@@ -1,0 +1,215 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9.12.0"
+
+jobs:
+  install:
+    name: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: code/pnpm-lock.yaml
+      - name: Install
+        working-directory: code
+        run: pnpm install --frozen-lockfile
+
+  lint:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: code/pnpm-lock.yaml
+      - name: Install
+        working-directory: code
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: code
+        run: pnpm lint
+
+  typecheck:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: code/pnpm-lock.yaml
+      - name: Install
+        working-directory: code
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        working-directory: code
+        run: pnpm typecheck
+
+  test:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: code/pnpm-lock.yaml
+      - name: Install
+        working-directory: code
+        run: pnpm install --frozen-lockfile
+      - name: Test (unit/integration with coverage — 100% threshold enforced)
+        working-directory: code
+        run: pnpm test:ci
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: code/apps/*/coverage
+
+  build:
+    needs: [lint, typecheck, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: code/pnpm-lock.yaml
+      - name: Install
+        working-directory: code
+        run: pnpm install --frozen-lockfile
+      - name: Build (frontend + backend)
+        working-directory: code
+        run: pnpm build
+      - name: Upload frontend dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: code/apps/frontend/dist
+          retention-days: 7
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "${{ env.PNPM_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: code/pnpm-lock.yaml
+      - name: Install
+        working-directory: code
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        working-directory: code/apps/frontend
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build frontend
+        working-directory: code
+        run: pnpm --filter @muga/frontend build
+      - name: Run Playwright
+        working-directory: code/apps/frontend
+        run: pnpm e2e
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: code/apps/frontend/playwright-report
+          retention-days: 7
+
+  docker:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker build (backend image)
+        working-directory: code
+        run: docker build -f apps/backend/Dockerfile -t muga-backend:ci .
+
+  lighthouse:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: code/apps/frontend/dist
+      - name: Run Lighthouse CI
+        id: lhci
+        uses: treosh/lighthouse-ci-action@v11
+        with:
+          configPath: code/.github/lighthouse/lighthouserc.json
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+      - name: Comment on PR with Lighthouse summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const links = `${{ steps.lhci.outputs.links }}` || '(no public storage URL)';
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚦 **Lighthouse CI report**\n${links}\n\nTargets: a11y ≥ 95 (error), perf/best-practices/seo ≥ 0.85 (warn). See \`code/.github/lighthouse/lighthouserc.json\`.`
+            });
+      - name: Slack notify on assertion failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload: |
+            {
+              "attachments": [{
+                "color": "#f5a623",
+                "title": "[NOTIFY] Lighthouse regression on PR #${{ github.event.number }}",
+                "text": "Assertions failed on ${{ github.event.pull_request.head.ref }}. Open the PR comment for details.",
+                "fields": [
+                  { "title": "actor", "value": "${{ github.actor }}", "short": true },
+                  { "title": "sha", "value": "${{ github.sha }}", "short": true }
+                ]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.STAGING_SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true

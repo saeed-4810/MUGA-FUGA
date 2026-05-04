@@ -1,0 +1,29 @@
+displayName: "MUGA backend — upload failure spike (5m)"
+documentation:
+  content: |
+    Backend is rejecting cover-art uploads at >5 events/sec for 5 min.
+    See alerting runbook A5.
+  mimeType: text/markdown
+combiner: OR
+enabled: true
+conditions:
+  - displayName: "upload validation failure rate spike"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        AND resource.labels.service_name = "muga-backend"
+        AND metric.type = "logging.googleapis.com/user/muga_upload_validation_fail"
+      aggregations:
+        - alignmentPeriod: "60s"
+          perSeriesAligner: ALIGN_RATE
+          crossSeriesReducer: REDUCE_SUM
+      comparison: COMPARISON_GT
+      thresholdValue: 5
+      duration: "300s"
+      trigger:
+        count: 1
+notificationChannels:
+  - "${NOTIFICATION_CHANNEL_SLACK}"
+alertStrategy:
+  autoClose: "1800s"
+severity: WARNING

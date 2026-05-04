@@ -1,0 +1,32 @@
+displayName: "MUGA backend — auth failure spike (5m)"
+documentation:
+  content: |
+    Backend is emitting an unusually high rate of UNAUTHENTICATED responses
+    (10x baseline). Could be a brute-force attempt or a broken client.
+    See alerting runbook A4.
+  mimeType: text/markdown
+combiner: OR
+enabled: true
+conditions:
+  - displayName: "UNAUTHENTICATED rate spike"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        AND resource.labels.service_name = "muga-backend"
+        AND metric.type = "logging.googleapis.com/user/muga_unauth_count"
+      aggregations:
+        - alignmentPeriod: "60s"
+          perSeriesAligner: ALIGN_RATE
+          crossSeriesReducer: REDUCE_SUM
+      comparison: COMPARISON_GT
+      thresholdValue: 5 # >5 unauth events/sec sustained for 5m
+      duration: "300s"
+      trigger:
+        count: 1
+notificationChannels:
+  - "${NOTIFICATION_CHANNEL_SLACK}"
+alertStrategy:
+  autoClose: "1800s"
+severity: WARNING
+# NOTE: requires the log-based metric `muga_unauth_count` defined in
+# `code/.github/monitoring/log-based-metrics.yaml`.

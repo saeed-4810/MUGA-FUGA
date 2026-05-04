@@ -1,0 +1,43 @@
+{
+  "list": {
+    "title": "Products",
+    "subtitle": "Browse the music catalog.",
+    "actions": { "create": "Create product" },
+    "empty": {
+      "title": "No products yet",
+      "body": "Be the first to add an album or single to the catalog."
+    },
+    "errors": {
+      "load": "Couldn't load products ({{code}})."
+    },
+    "coverAlt": "Cover art for {{name}}",
+    "columns": {
+      "name": "Name",
+      "artist": "Artist"
+    }
+  },
+  "create": {
+    "title": "Create product",
+    "subtitle": "Submit a new music product. Customer submissions await admin approval.",
+    "fields": {
+      "name": "Product name",
+      "artistName": "Artist name",
+      "coverArt": "Cover art",
+      "coverHint": "JPEG, PNG, WebP, or AVIF — up to 5 MB."
+    },
+    "previewAlt": "Cover art preview",
+    "actions": {
+      "cancel": "Cancel",
+      "submit": "Submit",
+      "submitting": "Submitting…"
+    },
+    "errors": {
+      "coverRequired": "Please choose a cover-art image."
+    }
+  },
+  "status": {
+    "pending": "Pending review",
+    "published": "Published",
+    "rejected": "Rejected"
+  }
+}

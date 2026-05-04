@@ -1,0 +1,18 @@
+displayName: "MUGA frontend uptime"
+period: "60s"
+timeout: "10s"
+checkerType: STATIC_IP_CHECKERS
+selectedRegions: ["EUROPE", "USA"]
+httpCheck:
+  requestMethod: GET
+  path: /
+  port: 443
+  useSsl: true
+  validateSsl: true
+  acceptedResponseStatusCodes:
+    - statusClass: STATUS_CLASS_2XX
+monitoredResource:
+  type: uptime_url
+  labels:
+    project_id: ${PROJECT_ID}
+    host: ${FRONTEND_HOST} # staging.muga.app | muga.app

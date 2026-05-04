@@ -1,0 +1,38 @@
+# Log-based metric definitions consumed by alert policies above.
+# Apply with `gcloud logging metrics create <name> --config-from-file=...`.
+# These are stored as YAML for review/version-control; field names match the
+# REST API for `projects.metrics.create`.
+
+metrics:
+  - name: muga_unauth_count
+    description: Count of UNAUTHENTICATED responses emitted by muga-backend
+    filter: |
+      resource.type="cloud_run_revision"
+      AND resource.labels.service_name="muga-backend"
+      AND jsonPayload.alert.kind="auth_failure"
+    metricDescriptor:
+      metricKind: DELTA
+      valueType: INT64
+      unit: "1"
+
+  - name: muga_upload_validation_fail
+    description: Count of cover-art upload validation failures
+    filter: |
+      resource.type="cloud_run_revision"
+      AND resource.labels.service_name="muga-backend"
+      AND jsonPayload.alert.kind="upload_validation_fail"
+    metricDescriptor:
+      metricKind: DELTA
+      valueType: INT64
+      unit: "1"
+
+  - name: muga_admin_action_count
+    description: Count of admin approve/reject actions (non-alert; for SLO dashboards)
+    filter: |
+      resource.type="cloud_run_revision"
+      AND resource.labels.service_name="muga-backend"
+      AND jsonPayload.alert.kind="admin_action"
+    metricDescriptor:
+      metricKind: DELTA
+      valueType: INT64
+      unit: "1"

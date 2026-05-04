@@ -1,0 +1,7 @@
+{
+  "generic": "Er is iets misgegaan. Probeer het opnieuw.",
+  "network": "Netwerkfout. Controleer je verbinding.",
+  "validation": "Sommige velden zijn ongeldig.",
+  "unauthenticated": "Log in om door te gaan.",
+  "forbidden": "Je hebt geen toestemming voor deze actie."
+}

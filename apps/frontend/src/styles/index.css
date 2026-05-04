@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- Design Tokens ---------- */
+@layer base {
+  :root {
+    --surface: 255 255 255;
+    --surface-muted: 245 245 250;
+    --surface-subtle: 250 250 253;
+    --ink: 17 18 28;
+    --ink-muted: 79 81 96;
+    --ink-subtle: 122 124 140;
+    --ink-inverted: 255 255 255;
+    --line: 226 228 236;
+    --line-strong: 198 201 215;
+    --ring: 124 92 255;
+  }
+
+  .dark {
+    --surface: 11 11 20;
+    --surface-muted: 18 19 30;
+    --surface-subtle: 24 25 38;
+    --ink: 235 236 244;
+    --ink-muted: 169 172 190;
+    --ink-subtle: 132 135 156;
+    --ink-inverted: 17 18 28;
+    --line: 38 40 56;
+    --line-strong: 60 63 84;
+    --ring: 154 131 255;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-surface text-ink;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  *:focus-visible {
+    outline: none;
+    @apply ring-offset-surface ring-2 ring-offset-2;
+    box-shadow: 0 0 0 4px rgb(var(--ring) / 0.35);
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400 dark:text-ink-inverted text-white;
+  }
+  .btn-ghost {
+    @apply btn text-ink hover:bg-surface-muted bg-transparent;
+  }
+  .card {
+    @apply border-line bg-surface shadow-soft rounded-2xl border;
+  }
+  .input {
+    @apply border-line bg-surface-muted text-ink placeholder:text-ink-subtle focus:border-brand-400 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none;
+  }
+  .label {
+    @apply text-ink-muted mb-1 block text-sm font-medium;
+  }
+}

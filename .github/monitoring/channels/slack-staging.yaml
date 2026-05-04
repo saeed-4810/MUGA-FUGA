@@ -1,0 +1,9 @@
+type: slack
+displayName: "MUGA Slack #muga-alerts (staging)"
+description: "Slack channel for staging notify-level alerts"
+labels:
+  channel_name: "#muga-alerts"
+  url: "${SLACK_WEBHOOK_URL_STAGING}"
+userLabels:
+  environment: staging
+  team: muga

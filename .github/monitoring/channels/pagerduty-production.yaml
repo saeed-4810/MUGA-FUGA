@@ -1,0 +1,8 @@
+type: pagerduty
+displayName: "MUGA PagerDuty (production page)"
+description: "Pages on-call for production-Sev1 incidents"
+labels:
+  service_key: "${PAGERDUTY_INTEGRATION_KEY}"
+userLabels:
+  environment: production
+  team: muga

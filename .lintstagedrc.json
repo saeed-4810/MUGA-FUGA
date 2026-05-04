@@ -1,0 +1,15 @@
+{
+  "apps/*/src/**/*.{ts,tsx,js,jsx}": [
+    "eslint --fix --max-warnings=0 --no-warn-ignored",
+    "prettier --write"
+  ],
+  "apps/*/tests/**/*.{ts,tsx}": [
+    "eslint --fix --max-warnings=0 --no-warn-ignored",
+    "prettier --write"
+  ],
+  "apps/*/e2e/**/*.{ts,tsx}": [
+    "eslint --fix --max-warnings=0 --no-warn-ignored",
+    "prettier --write"
+  ],
+  "*.{json,md,yml,yaml,html,css}": ["prettier --write --ignore-unknown"]
+}

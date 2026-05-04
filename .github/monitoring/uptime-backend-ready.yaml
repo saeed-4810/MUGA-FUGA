@@ -1,0 +1,21 @@
+displayName: "MUGA backend /healthz/ready (deep) uptime"
+period: "300s"
+timeout: "15s"
+checkerType: STATIC_IP_CHECKERS
+selectedRegions: ["EUROPE"]
+httpCheck:
+  requestMethod: GET
+  path: /healthz/ready
+  port: 443
+  useSsl: true
+  validateSsl: true
+  acceptedResponseStatusCodes:
+    - statusClass: STATUS_CLASS_2XX
+monitoredResource:
+  type: uptime_url
+  labels:
+    project_id: ${PROJECT_ID}
+    host: ${BACKEND_HOST}
+contentMatchers:
+  - content: '"firestore":"ok"'
+    matcher: CONTAINS_STRING
