@@ -4,6 +4,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    // Backend route suites use Supertest + coverage instrumentation and can
+    // exceed Vitest's 5s default on pre-push when frontend and backend gates run
+    // together. Keep the tests deterministic; give CI/hook contention headroom.
+    testTimeout: 10_000,
     include: ["tests/**/*.test.ts", "src/**/*.test.ts"],
     coverage: {
       provider: "v8",

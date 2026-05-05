@@ -5,6 +5,25 @@
 /* ---------- Design Tokens ---------- */
 @layer base {
   :root {
+    --background: 255 255 255;
+    --foreground: 17 18 28;
+    --card: 255 255 255;
+    --card-foreground: 17 18 28;
+    --popover: 255 255 255;
+    --popover-foreground: 17 18 28;
+    --primary: 106 69 240;
+    --primary-foreground: 255 255 255;
+    --secondary: 245 245 250;
+    --secondary-foreground: 17 18 28;
+    --muted: 245 245 250;
+    --muted-foreground: 79 81 96;
+    --accent: 250 250 253;
+    --accent-foreground: 17 18 28;
+    --destructive: 220 38 38;
+    --destructive-foreground: 255 255 255;
+    --border: 226 228 236;
+    --input: 226 228 236;
+    --radius: 0.875rem;
     --surface: 255 255 255;
     --surface-muted: 245 245 250;
     --surface-subtle: 250 250 253;
@@ -18,6 +37,24 @@
   }
 
   .dark {
+    --background: 11 11 20;
+    --foreground: 235 236 244;
+    --card: 11 11 20;
+    --card-foreground: 235 236 244;
+    --popover: 18 19 30;
+    --popover-foreground: 235 236 244;
+    --primary: 124 92 255;
+    --primary-foreground: 17 18 28;
+    --secondary: 18 19 30;
+    --secondary-foreground: 235 236 244;
+    --muted: 18 19 30;
+    --muted-foreground: 169 172 190;
+    --accent: 24 25 38;
+    --accent-foreground: 235 236 244;
+    --destructive: 248 113 113;
+    --destructive-foreground: 17 18 28;
+    --border: 38 40 56;
+    --input: 60 63 84;
     --surface: 11 11 20;
     --surface-muted: 18 19 30;
     --surface-subtle: 24 25 38;
