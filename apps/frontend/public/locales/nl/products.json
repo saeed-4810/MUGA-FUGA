@@ -21,7 +21,7 @@
     "subtitle": "Dien een nieuw muziekproduct in. Inzendingen van klanten wachten op goedkeuring door een beheerder.",
     "fields": {
       "name": "Productnaam",
-      "artistName": "Artiestennaam",
+      "artist": "Artiest",
       "coverArt": "Hoes",
       "coverHint": "JPEG, PNG, WebP of AVIF — tot 5 MB."
     },
@@ -32,6 +32,7 @@
       "submitting": "Bezig met indienen…"
     },
     "errors": {
+      "artistRequired": "Kies een artiest.",
       "coverRequired": "Kies een afbeelding voor de hoes."
     }
   },

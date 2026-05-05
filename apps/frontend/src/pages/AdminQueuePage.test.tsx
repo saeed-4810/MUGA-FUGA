@@ -53,7 +53,11 @@ const seedAuthAdmin = () =>
 const fixture = (overrides: Partial<{ id: string; name: string; artistName: string }> = {}) => ({
   id: overrides.id ?? "p1",
   name: overrides.name ?? "Pending Album",
-  artistName: overrides.artistName ?? "Pending Artist",
+  artist: {
+    id: `${overrides.id ?? "p1"}-artist`,
+    name: overrides.artistName ?? "Pending Artist",
+    status: "published" as const,
+  },
   ownerEmail: "owner@example.com",
   createdAt: "2026-05-01T10:00:00Z",
   status: "pending" as const,

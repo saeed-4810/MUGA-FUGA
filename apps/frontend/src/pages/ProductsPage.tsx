@@ -9,7 +9,12 @@ import { api, type ApiError } from "../lib/api";
 interface Product {
   id: string;
   name: string;
-  artistName: string;
+  artist: {
+    id: string;
+    name: string;
+    status: "pending" | "published" | "rejected";
+    imageUrl?: string;
+  };
   coverArtPath: string;
   coverArtUrl?: string;
   status: "pending" | "published" | "rejected";
@@ -79,7 +84,20 @@ export const ProductsPage = () => {
               </div>
               <div className="p-4">
                 <div className="text-base font-semibold">{p.name}</div>
-                <div className="text-ink-muted text-sm">{p.artistName}</div>
+                <div className="text-ink-muted mt-2 flex items-center gap-2 text-sm">
+                  {p.artist.imageUrl ? (
+                    <img
+                      src={p.artist.imageUrl}
+                      alt=""
+                      className="h-6 w-6 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="bg-surface-muted text-ink-subtle grid h-6 w-6 place-items-center rounded-full text-xs">
+                      ♪
+                    </span>
+                  )}
+                  <span>{p.artist.name}</span>
+                </div>
                 <div className="text-ink-subtle mt-2 text-xs uppercase tracking-wider">
                   {t(`status.${p.status}`)}
                 </div>

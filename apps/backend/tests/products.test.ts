@@ -477,8 +477,8 @@ describe("T-PROD-001..003: POST /products (CTR-003)", () => {
     expect(res.body.details.artistId).toBe("missing-artist");
   });
 
-  it("T-PROD-013 — customer create rejects a pending artist with ARTIST_NOT_PUBLISHED", async () => {
-    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+  it("T-PROD-013 — customer create rejects another owner's pending artist", async () => {
+    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist", ownerUid: "other" });
     const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
       name: "Pending Artist Release",
       artistId: "art-pending",
@@ -487,6 +487,18 @@ describe("T-PROD-001..003: POST /products (CTR-003)", () => {
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
     expect(res.body.details.artistId).toBe("art-pending");
+  });
+
+  it("T-PROD-013c — customer create may attach their own pending artist request", async () => {
+    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+    const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
+      name: "Pending Artist Release",
+      artistId: "art-pending",
+      coverArtPath: "cover-art/uid-cust/pending",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe("pending");
+    expect(res.body.artist).toMatchObject({ id: "art-pending", status: "pending" });
   });
 
   it("T-PROD-014 — admin override creates with a pending artist and emits admin_override", async () => {
@@ -721,15 +733,26 @@ describe("T-PROD-008..009: PATCH /products/:id (CTR-006)", () => {
     expect(res.body.code).toBe("ARTIST_NOT_FOUND");
   });
 
-  it("T-PROD-013b — customer update rejects a pending artist with ARTIST_NOT_PUBLISHED", async () => {
+  it("T-PROD-013b — customer update rejects another owner's pending artist", async () => {
     seedProduct({ id: "p1", ownerUid: "uid-cust" });
-    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist", ownerUid: "other" });
     const res = await request(buildApp())
       .patch("/products/p1")
       .set("x-test-user", CUSTOMER)
       .send({ artistId: "art-pending" });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
+  });
+
+  it("T-PROD-013d — customer update may attach their own pending artist request", async () => {
+    seedProduct({ id: "p1", ownerUid: "uid-cust" });
+    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+    const res = await request(buildApp())
+      .patch("/products/p1")
+      .set("x-test-user", CUSTOMER)
+      .send({ artistId: "art-pending" });
+    expect(res.status).toBe(200);
+    expect(res.body.artist).toMatchObject({ id: "art-pending", status: "pending" });
   });
 });
 

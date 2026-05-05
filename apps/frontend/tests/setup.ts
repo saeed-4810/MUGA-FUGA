@@ -5,11 +5,13 @@ import { initReactI18next } from "react-i18next";
 import { afterEach, beforeAll, beforeEach } from "vitest";
 
 import enAdmin from "../locales/en/admin.json";
+import enArtists from "../locales/en/artists.json";
 import enAuth from "../locales/en/auth.json";
 import enCommon from "../locales/en/common.json";
 import enErrors from "../locales/en/errors.json";
 import enProducts from "../locales/en/products.json";
 import nlAdmin from "../locales/nl/admin.json";
+import nlArtists from "../locales/nl/artists.json";
 import nlAuth from "../locales/nl/auth.json";
 import nlCommon from "../locales/nl/common.json";
 import nlErrors from "../locales/nl/errors.json";
@@ -78,13 +80,14 @@ beforeAll(() => {
     lng: "en",
     fallbackLng: "en",
     supportedLngs: ["en", "nl"],
-    ns: ["common", "auth", "products", "admin", "errors"],
+    ns: ["common", "auth", "products", "admin", "artists", "errors"],
     defaultNS: "common",
     resources: {
       en: {
         common: enCommon,
         auth: enAuth,
         admin: enAdmin,
+        artists: enArtists,
         products: enProducts,
         errors: enErrors,
       },
@@ -92,6 +95,7 @@ beforeAll(() => {
         common: nlCommon,
         auth: nlAuth,
         admin: nlAdmin,
+        artists: nlArtists,
         products: nlProducts,
         errors: nlErrors,
       },

@@ -166,11 +166,20 @@ done
 After running the script, deploy the Firestore + Storage rules from the repo:
 
 ```bash
+gcloud storage buckets update gs://muga-staging-cover-art \
+  --cors-file=storage-cors.staging.json
 firebase deploy --only firestore:rules,firestore:indexes,storage \
   --project=muga-staging
+
+gcloud storage buckets update gs://muga-production-cover-art \
+  --cors-file=storage-cors.production.json
 firebase deploy --only firestore:rules,firestore:indexes,storage \
   --project=muga-production
 ```
+
+The CORS step is required because browser uploads use signed `PUT` URLs
+directly against Cloud Storage; Express API CORS does not apply to that second
+request.
 
 ---
 
@@ -393,6 +402,12 @@ gcloud firestore databases list --project=muga-staging
 # 3. Storage bucket
 gcloud storage buckets list --project=muga-staging
 # expect: gs://muga-staging-cover-art
+
+# 3b. Storage bucket CORS allows signed browser uploads
+gcloud storage buckets describe gs://muga-staging-cover-art \
+  --format="default(cors_config)"
+# expect: origin=https://muga-staging.web.app, method includes PUT,
+# responseHeader includes Content-Type
 
 # 4. Artifact Registry
 gcloud artifacts repositories list --location=europe-west1 --project=muga-staging

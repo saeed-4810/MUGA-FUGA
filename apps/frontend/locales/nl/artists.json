@@ -1,0 +1,29 @@
+{
+  "combobox": {
+    "label": "Artiest",
+    "placeholder": "Zoek artiesten…",
+    "loading": "Artiesten laden…",
+    "empty": "Geen artiesten gevonden.",
+    "error": "Kon artiesten niet laden ({{code}}).",
+    "addNew": "Voeg \"{{name}}\" toe als nieuwe artiest…"
+  },
+  "request": {
+    "title": "Nieuwe artiest aanvragen",
+    "body": "Een beheerder beoordeelt je aanvraag voordat de artiest openbaar wordt.",
+    "actions": {
+      "submit": "Aanvragen"
+    }
+  },
+  "dashboard": {
+    "pendingTitle": "Jouw openstaande aanvragen",
+    "pendingEmpty": "Geen openstaande aanvragen."
+  },
+  "productBanner": {
+    "bothPending": "Je product komt online zodra zowel deze artiest als het product zijn goedgekeurd."
+  },
+  "status": {
+    "pending": "In afwachting",
+    "published": "Gepubliceerd",
+    "rejected": "Afgewezen"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "combobox": {
+    "label": "Artist",
+    "placeholder": "Search artists…",
+    "loading": "Loading artists…",
+    "empty": "No artists match.",
+    "error": "Couldn't load artists ({{code}}).",
+    "addNew": "Add \"{{name}}\" as a new artist…"
+  },
+  "request": {
+    "title": "Request a new artist",
+    "body": "An admin will review your request before the artist becomes public.",
+    "actions": {
+      "submit": "Request"
+    }
+  },
+  "dashboard": {
+    "pendingTitle": "Your pending requests",
+    "pendingEmpty": "No pending requests."
+  },
+  "productBanner": {
+    "bothPending": "Your product will go live once both this artist and the product are approved."
+  },
+  "status": {
+    "pending": "Pending",
+    "published": "Published",
+    "rejected": "Rejected"
+  }
+}

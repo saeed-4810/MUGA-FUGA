@@ -48,4 +48,30 @@ test.describe("E-PROD-001 — Products list + create", () => {
     expect(popup.url()).toMatch(/accounts\.google\.com|firebaseapp\.com/);
     await popup.close();
   });
+
+  test("E-PROD-001d — customer can open request-artist dialog from create form", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.sessionStorage.setItem(
+        "muga:e2e-user",
+        JSON.stringify({ uid: "e2e-customer", email: "customer@example.com", role: "customer" })
+      );
+    });
+    await page.route("**/products?status=pending", (route) =>
+      route.fulfill({ json: { items: [] } })
+    );
+    await page.route("**/artists?status=pending", (route) =>
+      route.fulfill({ json: { items: [] } })
+    );
+    await page.route("**/artists?status=published**", (route) =>
+      route.fulfill({ json: { items: [] } })
+    );
+
+    await page.goto("/products/new");
+    await page.getByRole("combobox", { name: /artist/i }).fill("E2E Artist");
+    await expect(page.getByRole("button", { name: /add "e2e artist"/i })).toBeVisible();
+    await page.getByRole("button", { name: /add "e2e artist"/i }).click();
+    await expect(page.getByRole("dialog", { name: /request a new artist/i })).toBeVisible();
+  });
 });

@@ -8,7 +8,12 @@ import { api, type ApiError } from "../lib/api";
 interface Product {
   id: string;
   name: string;
-  artistName: string;
+  artist: {
+    id: string;
+    name: string;
+    status: "pending" | "published" | "rejected";
+    imageUrl?: string;
+  };
   ownerEmail: string;
   createdAt: string;
   status: "pending" | "published" | "rejected";
@@ -72,7 +77,7 @@ export const AdminQueuePage = () => {
               {items.map((p) => (
                 <tr key={p.id}>
                   <td className="px-4 py-3 font-medium">{p.name}</td>
-                  <td className="text-ink-muted px-4 py-3">{p.artistName}</td>
+                  <td className="text-ink-muted px-4 py-3">{p.artist.name}</td>
                   <td className="text-ink-muted px-4 py-3">{p.ownerEmail}</td>
                   <td className="text-ink-subtle px-4 py-3">
                     {new Date(p.createdAt).toLocaleString()}

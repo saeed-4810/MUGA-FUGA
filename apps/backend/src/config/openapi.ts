@@ -213,7 +213,8 @@ export const openApiSpec = {
         },
         responses: {
           "201": {
-            description: "Created (status=pending for customer; published for admin)",
+            description:
+              "Created (status=pending for customer; published for admin). Customers may attach their own pending artist request; admins may override pending artist status with audit logging.",
             content: { "application/json": { schema: { $ref: "#/components/schemas/Product" } } },
           },
         },
@@ -238,7 +239,7 @@ export const openApiSpec = {
         responses: { "200": { description: "OK" } },
       },
       patch: {
-        summary: "Update product (CTR-006) — artistId FK validated when supplied",
+        summary: "Update product (CTR-006) — artistId FK/ownership validated when supplied",
         responses: { "200": { description: "OK" } },
       },
       delete: {

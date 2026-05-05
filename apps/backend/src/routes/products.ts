@@ -61,7 +61,7 @@ export const productsRouter = (env: Env): ExpressRouter => {
       const now = new Date().toISOString();
       const doc = db(env).collection(COLLECTION).doc();
       const isAdmin = req.user!.role === "admin";
-      const artist = await validateArtistForWrite(env, input.artistId, req.user!.role);
+      const artist = await validateArtistForWrite(env, input.artistId, req.user!);
       const status: ProductStatus = isAdmin ? "published" : "pending";
       const product: Product = {
         id: doc.id,
@@ -142,7 +142,7 @@ export const productsRouter = (env: Env): ExpressRouter => {
       if (!isAdmin && !isOwner) throw Errors.forbidden();
       const nextArtist =
         input.artistId !== undefined
-          ? await validateArtistForWrite(env, input.artistId, req.user!.role)
+          ? await validateArtistForWrite(env, input.artistId, req.user!)
           : null;
       // Strip undefined keys before spreading so partial updates do not
       // clobber existing required fields with `undefined` (TS + runtime safe).
@@ -231,11 +231,13 @@ const loadArtist = async (env: Env, artistId: string): Promise<Artist> => {
 const validateArtistForWrite = async (
   env: Env,
   artistId: string,
-  actorRole: "admin" | "customer"
+  actor: { role: "admin" | "customer"; uid: string }
 ): Promise<Artist> => {
   const artist = await loadArtist(env, artistId);
   if (artist.status === "published") return artist;
-  if (actorRole === "admin" && artist.status === "pending") return artist;
+  if (artist.status === "pending" && (actor.role === "admin" || artist.ownerUid === actor.uid)) {
+    return artist;
+  }
   throw Errors.artistNotPublished(artistId);
 };
 

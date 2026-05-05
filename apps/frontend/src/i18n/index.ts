@@ -14,7 +14,7 @@ void i18n
     fallbackLng: fallback,
     supportedLngs: supported,
     nonExplicitSupportedLngs: true,
-    ns: ["common", "auth", "products", "admin", "errors"],
+    ns: ["common", "auth", "products", "admin", "artists", "errors"],
     defaultNS: "common",
     backend: { loadPath: "/locales/{{lng}}/{{ns}}.json" },
     detection: {

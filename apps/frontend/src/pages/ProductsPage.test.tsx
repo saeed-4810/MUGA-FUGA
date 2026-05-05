@@ -71,7 +71,12 @@ describe("U-PROD-001..006: ProductsPage", () => {
         {
           id: "p1",
           name: "Neon Lullabies",
-          artistName: "Aurora",
+          artist: {
+            id: "art-1",
+            name: "Aurora",
+            status: "published",
+            imageUrl: "https://cdn.example/artist.jpg",
+          },
           coverArtPath: "cover-art/u/1.jpg",
           coverArtUrl: "https://cdn.example/cover1.jpg",
           status: "published",
@@ -88,6 +93,7 @@ describe("U-PROD-001..006: ProductsPage", () => {
     expect(img).not.toBeNull();
     expect(img).toHaveAttribute("alt", expect.stringContaining("Neon Lullabies"));
     expect(img).toHaveAttribute("loading", "lazy");
+    expect(document.querySelector('img[src="https://cdn.example/artist.jpg"]')).not.toBeNull();
   });
 
   it("U-PROD-004 — missing coverArtUrl falls back to the music-note placeholder", async () => {
@@ -96,7 +102,7 @@ describe("U-PROD-001..006: ProductsPage", () => {
         {
           id: "p1",
           name: "No Cover",
-          artistName: "Quiet Artist",
+          artist: { id: "art-2", name: "Quiet Artist", status: "published" },
           coverArtPath: "cover-art/u/x.jpg",
           status: "pending",
           ownerEmail: "a@example.com",
@@ -107,7 +113,7 @@ describe("U-PROD-001..006: ProductsPage", () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("No Cover")).toBeInTheDocument());
     expect(document.querySelector("img")).toBeNull();
-    expect(screen.getByText("♪")).toBeInTheDocument();
+    expect(screen.getAllByText("♪")).toHaveLength(2);
   });
 
   it("U-PROD-005 — error state renders role=alert with the API code", async () => {
