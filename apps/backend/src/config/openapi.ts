@@ -1,7 +1,7 @@
 /**
  * MUGA OpenAPI 3.1 spec.
  * Hand-curated to keep zero runtime overhead. Mirrors `docs/api/api-spec.md`
- * (CTR-001 .. CTR-009).
+ * (CTR-001 .. CTR-009 for products, CTR-100 .. CTR-107 for artists).
  */
 export const openApiSpec = {
   openapi: "3.1.0",
@@ -329,6 +329,18 @@ export const openApiSpec = {
       delete: {
         summary: "Delete artist (CTR-105) — 409 if referenced by any product",
         responses: { "204": { description: "No content" } },
+      },
+    },
+    "/artists/{id}/approve": {
+      post: {
+        summary: "Admin approve artist (CTR-106) — 409 if already published",
+        responses: { "200": { description: "OK" } },
+      },
+    },
+    "/artists/{id}/reject": {
+      post: {
+        summary: "Admin reject artist (CTR-107) — body { reason? } or default",
+        responses: { "200": { description: "OK" } },
       },
     },
   },

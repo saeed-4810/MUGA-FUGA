@@ -840,3 +840,154 @@ describe("T-ARTIST-024..030: DELETE /artists/:id (CTR-105)", () => {
     expect(objectDeleteCalls).toHaveLength(0);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════
+// CTR-106 / CTR-107 — Admin moderation (approve / reject)
+// ══════════════════════════════════════════════════════════════════════
+
+describe("T-ARTIST-031..036: POST /artists/:id/approve|reject (CTR-106, CTR-107)", () => {
+  // ─── CTR-106 — approve ───────────────────────────────────────────────
+
+  it("T-ARTIST-031 — admin approves a pending artist → status=published, approvedAt+By set", async () => {
+    seedArtist({ id: "a1", status: "pending", ownerUid: "uid-cust" });
+    const res = await request(buildApp())
+      .post("/artists/a1/approve")
+      .set("x-test-user", ADMIN)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("published");
+    expect(res.body.approvedBy).toBe("uid-admin");
+    expect(typeof res.body.approvedAt).toBe("string");
+    // updatedAt is bumped
+    expect(typeof res.body.updatedAt).toBe("string");
+  });
+
+  it("T-ARTIST-031b — customer cannot approve → 403", async () => {
+    seedArtist({ id: "a1", status: "pending" });
+    const res = await request(buildApp())
+      .post("/artists/a1/approve")
+      .set("x-test-user", CUSTOMER)
+      .send({});
+    expect(res.status).toBe(403);
+  });
+
+  it("T-ARTIST-032 — approve missing artist → 404", async () => {
+    const res = await request(buildApp())
+      .post("/artists/missing/approve")
+      .set("x-test-user", ADMIN)
+      .send({});
+    expect(res.status).toBe(404);
+  });
+
+  it("T-ARTIST-033 — approve an already-published artist → 409", async () => {
+    seedArtist({
+      id: "a1",
+      status: "published",
+      approvedAt: "2026-05-01T00:00:00.000Z",
+      approvedBy: "uid-admin",
+    });
+    const res = await request(buildApp())
+      .post("/artists/a1/approve")
+      .set("x-test-user", ADMIN)
+      .send({});
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("CONFLICT");
+    expect(res.body.message).toMatch(/already published/i);
+  });
+
+  // ─── CTR-107 — reject ────────────────────────────────────────────────
+
+  it("T-ARTIST-034 — admin rejects with reason → status=rejected, rejectionReason stored", async () => {
+    seedArtist({ id: "a1", status: "pending" });
+    const res = await request(buildApp())
+      .post("/artists/a1/reject")
+      .set("x-test-user", ADMIN)
+      .send({ reason: "Name conflicts with existing trademark" });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("rejected");
+    expect(res.body.rejectionReason).toBe("Name conflicts with existing trademark");
+  });
+
+  it("T-ARTIST-034b — default reason applied when body omits reason", async () => {
+    seedArtist({ id: "a1", status: "pending" });
+    const res = await request(buildApp())
+      .post("/artists/a1/reject")
+      .set("x-test-user", ADMIN)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.rejectionReason).toBe("Rejected by admin");
+  });
+
+  it("T-ARTIST-034c — default reason when reason is non-string (number)", async () => {
+    seedArtist({ id: "a1", status: "pending" });
+    const res = await request(buildApp())
+      .post("/artists/a1/reject")
+      .set("x-test-user", ADMIN)
+      .send({ reason: 12345 });
+    expect(res.status).toBe(200);
+    expect(res.body.rejectionReason).toBe("Rejected by admin");
+  });
+
+  it("T-ARTIST-034d — customer cannot reject → 403", async () => {
+    seedArtist({ id: "a1", status: "pending" });
+    const res = await request(buildApp())
+      .post("/artists/a1/reject")
+      .set("x-test-user", CUSTOMER)
+      .send({ reason: "x" });
+    expect(res.status).toBe(403);
+  });
+
+  it("T-ARTIST-034e — reject missing artist → 404", async () => {
+    const res = await request(buildApp())
+      .post("/artists/missing/reject")
+      .set("x-test-user", ADMIN)
+      .send({});
+    expect(res.status).toBe(404);
+  });
+
+  it("T-ARTIST-034f — reject handles missing body gracefully (no JSON body)", async () => {
+    seedArtist({ id: "a1", status: "pending" });
+    const res = await request(buildApp()).post("/artists/a1/reject").set("x-test-user", ADMIN);
+    expect(res.status).toBe(200);
+    expect(res.body.rejectionReason).toBe("Rejected by admin");
+  });
+
+  // ─── DECISION-2026-05-05-017 — re-approval and re-rejection edges ──
+
+  it("T-ARTIST-035 — admin re-approves a rejected artist → status=published; rejectionReason kept (audit)", async () => {
+    seedArtist({
+      id: "a1",
+      status: "rejected",
+      rejectionReason: "Initial reason",
+    });
+    const res = await request(buildApp())
+      .post("/artists/a1/approve")
+      .set("x-test-user", ADMIN)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("published");
+    expect(res.body.approvedBy).toBe("uid-admin");
+    // Per DECISION-2026-05-05-017: rejectionReason is intentionally NOT cleared on
+    // re-approval — it remains as a historical audit record.
+    expect(res.body.rejectionReason).toBe("Initial reason");
+  });
+
+  it("T-ARTIST-036 — admin re-rejects a published artist → status=rejected; approvedAt+By preserved", async () => {
+    seedArtist({
+      id: "a1",
+      status: "published",
+      approvedAt: "2026-05-01T00:00:00.000Z",
+      approvedBy: "uid-admin-old",
+    });
+    const res = await request(buildApp())
+      .post("/artists/a1/reject")
+      .set("x-test-user", ADMIN)
+      .send({ reason: "Pulled down — guideline breach" });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("rejected");
+    expect(res.body.rejectionReason).toBe("Pulled down — guideline breach");
+    // approvedAt + approvedBy intentionally preserved (audit trail).
+    expect(res.body.approvedAt).toBe("2026-05-01T00:00:00.000Z");
+    expect(res.body.approvedBy).toBe("uid-admin-old");
+  });
+});

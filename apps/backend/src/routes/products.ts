@@ -11,6 +11,7 @@ import {
 } from "../domain/product.js";
 import { emitAlert } from "../lib/alerting.js";
 import { db, bucket } from "../lib/firebase.js";
+import { buildApproveHandler, buildRejectHandler } from "../lib/moderation.js";
 import { SignedUploadInput, mintSignedUpload } from "../lib/signedUpload.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
@@ -161,64 +162,28 @@ export const productsRouter = (env: Env): ExpressRouter => {
   });
 
   // POST /products/:id/approve — admin-only approval (CTR-008)
-  router.post("/:id/approve", requireRole("admin"), async (req, res, next) => {
-    try {
-      const id = req.params["id"]!;
-      const ref = db(env).collection(COLLECTION).doc(id);
-      const snap = await ref.get();
-      if (!snap.exists) throw Errors.notFound("product");
-      const existing = ProductSchema.parse(snap.data());
-      if (existing.status === "published") throw Errors.conflict("Product already published");
-      const now = new Date().toISOString();
-      const updated: Product = {
-        ...existing,
-        status: "published",
-        approvedAt: now,
-        approvedBy: req.user!.uid,
-        updatedAt: now,
-      };
-      await ref.set(updated);
-      // Informational alert event (drives the admin-action SLO dashboard)
-      void emitAlert(env, {
-        kind: "admin_action",
-        severity: "info",
-        message: `admin approved product ${id}`,
-        context: { productId: id, adminUid: req.user!.uid },
-      });
-      res.json(updated);
-    } catch (err) {
-      next(err);
-    }
-  });
+  router.post(
+    "/:id/approve",
+    requireRole("admin"),
+    buildApproveHandler(env, {
+      collection: COLLECTION,
+      schema: ProductSchema,
+      resourceLabel: "product",
+      alertKind: "admin_action",
+    })
+  );
 
   // POST /products/:id/reject — admin-only rejection (CTR-009)
-  router.post("/:id/reject", requireRole("admin"), async (req, res, next) => {
-    try {
-      const id = req.params["id"]!;
-      const reason = typeof req.body?.reason === "string" ? req.body.reason : "Rejected by admin";
-      const ref = db(env).collection(COLLECTION).doc(id);
-      const snap = await ref.get();
-      if (!snap.exists) throw Errors.notFound("product");
-      const existing = ProductSchema.parse(snap.data());
-      const now = new Date().toISOString();
-      const updated: Product = {
-        ...existing,
-        status: "rejected",
-        rejectionReason: reason,
-        updatedAt: now,
-      };
-      await ref.set(updated);
-      void emitAlert(env, {
-        kind: "admin_action",
-        severity: "info",
-        message: `admin rejected product ${id}`,
-        context: { productId: id, adminUid: req.user!.uid, reason },
-      });
-      res.json(updated);
-    } catch (err) {
-      next(err);
-    }
-  });
+  router.post(
+    "/:id/reject",
+    requireRole("admin"),
+    buildRejectHandler(env, {
+      collection: COLLECTION,
+      schema: ProductSchema,
+      resourceLabel: "product",
+      alertKind: "admin_action",
+    })
+  );
 
   return router;
 };

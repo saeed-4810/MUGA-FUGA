@@ -13,8 +13,9 @@ import {
 import { Errors } from "../domain/errors.js";
 import { emitAlert } from "../lib/alerting.js";
 import { db, bucket } from "../lib/firebase.js";
+import { buildApproveHandler, buildRejectHandler } from "../lib/moderation.js";
 import { SignedUploadInput, mintSignedUpload } from "../lib/signedUpload.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 /**
  * Artist routes (ADR-007 — Sprint 2).
@@ -25,9 +26,14 @@ import { requireAuth } from "../middleware/auth.js";
  * CTR-103 — GET /:id                            — bearer (404-hide for non-owner non-admin pending)
  * CTR-104 — PATCH /:id                          — bearer (owner or admin)
  * CTR-105 — DELETE /:id                         — bearer (owner or admin; 409 when products reference it)
+ * CTR-106 — POST /:id/approve                   — admin (404, 409 already-published)
+ * CTR-107 — POST /:id/reject                    — admin (404; reason from body or default)
  *
- * CTR-106 + CTR-107 (approve/reject) ship in MUGA-17 with a shared
- * `lib/moderation.ts` extracted from products.
+ * Approve/reject share `lib/moderation.ts` with the products route — see
+ * DECISION-2026-05-05-018. Re-approval after rejection and re-rejection of
+ * published artists are intentionally allowed (DECISION-2026-05-05-017) so
+ * admins can correct their own decisions; both transitions are audit-logged
+ * via `alert.kind=admin_action`.
  */
 
 const COLLECTION = "artists";
@@ -274,6 +280,30 @@ export const artistsRouter = (env: Env): ExpressRouter => {
       next(err);
     }
   });
+
+  // CTR-106 — POST /:id/approve — admin-only approval.
+  router.post(
+    "/:id/approve",
+    requireRole("admin"),
+    buildApproveHandler(env, {
+      collection: COLLECTION,
+      schema: ArtistSchema,
+      resourceLabel: "artist",
+      alertKind: "admin_action",
+    })
+  );
+
+  // CTR-107 — POST /:id/reject — admin-only rejection.
+  router.post(
+    "/:id/reject",
+    requireRole("admin"),
+    buildRejectHandler(env, {
+      collection: COLLECTION,
+      schema: ArtistSchema,
+      resourceLabel: "artist",
+      alertKind: "admin_action",
+    })
+  );
 
   return router;
 };
