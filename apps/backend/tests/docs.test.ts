@@ -7,7 +7,7 @@ import { docsRouter } from "../src/routes/docs.js";
 /**
  * T-DOCS-001..002 — OpenAPI live routes (CTR-DOCS)
  *
- * Covered by MUGA-3 (docs.ts removed from coverage.exclude).
+ * Covers /api/docs (Swagger UI) + /api/openapi.json.
  */
 describe("T-DOCS-001..002: /api/docs + /api/openapi.json (CTR-DOCS)", () => {
   const buildApp = () => {

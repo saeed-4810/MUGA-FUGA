@@ -33,9 +33,7 @@ export const LoginPage = () => {
             className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
             role="status"
           >
-            {t("login.unconfigured", {
-              defaultValue: "Sign-in is unavailable in this build (Firebase not configured).",
-            })}
+            {t("login.unconfigured")}
           </p>
         )}
         <button

@@ -15,7 +15,7 @@ import { requestIdMiddleware } from "../src/middleware/requestId.js";
 /* eslint-enable import/order */
 
 /**
- * Tests for MUGA-3 — Products CRUD + signed-upload + admin endpoints.
+ * Tests for the Products CRUD + signed-upload + admin endpoints.
  *
  * Scenario coverage:
  *   T-UP-001..003     Signed-upload (CTR-002)
@@ -33,7 +33,7 @@ import { requestIdMiddleware } from "../src/middleware/requestId.js";
  *   - Mock `../src/middleware/auth.js` with a test harness that sets
  *     `req.user` based on the `x-test-user` header (uid:role:email).
  *     requireAuth rejects requests without the header (→ 401).
- *   - requireRole is re-exported from the real module (tested in MUGA-1).
+ *   - requireRole is re-exported from the real module (covered separately in auth.test.ts).
  */
 
 // ─── Controllable Firestore + Storage state ────────────────────────────
@@ -143,7 +143,7 @@ type AuthMiddlewareModule = {
 vi.mock("../src/middleware/auth.js", async (importActual) => {
   const actual = (await importActual()) as AuthMiddlewareModule;
   return {
-    // Real requireRole — tested in MUGA-1, reused here.
+    // Real requireRole — covered separately in auth.test.ts, reused here.
     requireRole: actual.requireRole,
     // Lightweight requireAuth for product tests. Reads `x-test-user`
     // header formatted `<uid>:<role>:<email>`. Missing → 401 via Errors.

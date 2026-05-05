@@ -28,20 +28,22 @@ export default defineConfig({
         // Test files themselves.
         "src/**/*.test.{ts,tsx}",
         "src/**/__mocks__/**",
-        // Feature-owned files — tests ship with their feature ticket
-        // (MUGA-2 → auth + login; MUGA-4 → products UIs; MUGA-5 → admin queue).
-        // Each ticket's DoD removes its file from this list.
+        // Feature-owned files — tests ship with their feature work.
+        // Each file is removed from this list as the corresponding tests land.
+        // The four auth files (AuthContext, LoginPage, RequireAuth, UserMenu)
+        // are now covered by their .test.tsx siblings.
         "src/lib/api.ts",
         "src/lib/uploads.ts",
         "src/lib/web-vitals.ts",
-        "src/context/AuthContext.tsx",
         "src/components/AppShell.tsx",
         "src/components/LocaleSwitcher.tsx",
         "src/components/PageHeader.tsx",
-        "src/components/RequireAuth.tsx",
         "src/components/ThemeToggle.tsx",
-        "src/components/UserMenu.tsx",
-        "src/pages/**",
+        "src/pages/DashboardPage.tsx",
+        "src/pages/ProductsPage.tsx",
+        "src/pages/CreateProductPage.tsx",
+        "src/pages/AdminQueuePage.tsx",
+        "src/pages/NotFoundPage.tsx",
         "src/routes/**",
       ],
       thresholds: {

@@ -28,15 +28,10 @@ test("E-SHELL-001 — landing renders with theme toggle and locale switcher", as
   await expect(page.getByTestId("locale-switcher")).toBeVisible();
 });
 
-test.fixme("E-AUTH-001 — Google sign-in flow", async ({ page }) => {
-  // Will be implemented when MUGA-2 (auth) lands.
-  await page.goto("/login");
-});
-
 test.fixme("E-PROD-001 — customer creates a product (signed-URL upload)", async () => {
-  // Will be implemented when MUGA-4 (frontend products) lands.
+  // Will be implemented when the products frontend ships.
 });
 
 test.fixme("E-ADMIN-001 — admin approves a pending product", async () => {
-  // Will be implemented when MUGA-5 (admin queue) lands.
+  // Will be implemented when the admin queue frontend ships.
 });

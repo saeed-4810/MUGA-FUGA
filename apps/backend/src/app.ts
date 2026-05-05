@@ -3,7 +3,7 @@ import express, { type Express, type Request } from "express";
 import helmet from "helmet";
 // pino-http ships a CJS module with a default export. Under NodeNext module
 // resolution TS needs the namespace-with-.default form to resolve the call
-// signature (see MUGA-0 carryover notes).
+// signature.
 import * as pinoHttpNs from "pino-http";
 import type { HttpLogger, Options } from "pino-http";
 

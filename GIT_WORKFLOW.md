@@ -14,20 +14,20 @@
                         │                │
                         │                └── tag vX.Y.Z ─→ deploy-production
                         │
-       feat/MUGA-3-...  ▼      fix/MUGA-12-...
+       feat/cool-thing  ▼      fix/login-bug
    (branch cut from main)    (branch cut from main)
                         │                │
                     (PR squash-merge → main)
 ```
 
 - **`main`** — the single long-lived branch. Merge to `main` = deploy to staging.
-- **`<type>/MUGA-xxx-<slug>`** — short-lived feature branches cut from `main`.
+- **`<type>/<slug>`** — short-lived feature branches cut from `main`.
 - **`vX.Y.Z` tags on `main`** — trigger production deploy.
 
 ## Naming
 
 ```
-<type>/MUGA-xxx-<kebab-slug>
+<type>/<kebab-slug>
 ```
 
 Allowed types (must match commit type):
@@ -36,27 +36,25 @@ Allowed types (must match commit type):
 
 Examples:
 
-- `feat/MUGA-3-backend-products-crud`
-- `fix/MUGA-42-signed-url-ttl`
-- `docs/MUGA-18-adr-alerting`
-- `hotfix/MUGA-99-auth-bypass`
+- `feat/products-crud`
+- `fix/signed-url-ttl`
+- `docs/adr-alerting`
+- `hotfix/auth-bypass`
 
 ## Lifecycle
 
-1. **Pull ticket from `📝 To Do`** — confirm DoR (OPERATING_DOR_DOD.md §3).
-2. **Move ticket to `🚀 In Progress`** on the kanban.
-3. **Create branch off `main`**:
+1. **Cut a branch off `main`**:
    ```
    git checkout main && git pull
-   git checkout -b feat/MUGA-xxx-<slug>
+   git checkout -b feat/your-slug
    ```
-4. **Implement** in small atomic commits. On every commit Husky runs:
+2. **Implement** in small atomic commits. On every commit Husky runs:
    - `pre-commit` → `lint-staged` (ESLint + Prettier on changed files)
    - `commit-msg` → `commitlint` (Conventional Commits)
-5. **Push** to the feature branch:
+3. **Push** to the feature branch:
 
    ```
-   git push -u origin feat/MUGA-xxx-<slug>
+   git push -u origin feat/your-slug
    ```
 
    Husky `pre-push` runs the **full quality gate locally** (same as CI):
@@ -64,18 +62,16 @@ Examples:
    - `pnpm typecheck` (tsc --noEmit across all workspaces)
    - `pnpm test:ci` (vitest with **100% coverage threshold enforced**)
 
-   Push is rejected if any gate fails. Bypass with `--no-verify` is **not permitted** without a Decision Log entry (OPERATING_DOR_DOD.md §10.6).
+   Push is rejected if any gate fails. Bypass with `--no-verify` is discouraged.
 
-6. **Open PR** `feat/…` → `main` with the PR template filled.
-7. **CI re-runs all gates** in a clean environment + Playwright E2E + Docker build + Lighthouse (on PR).
-8. **Request reviewer** per CODEOWNERS (4h SLA per WAY_OF_WORKING.md §3).
-9. **Run the role's TestRunner agent** — must return PASS.
-10. **Run the role's Verifier agent** — must return PASS.
-11. **Address review** — push fixup commits; pre-commit / pre-push enforced again.
-12. **Squash-merge to `main`** when approved. Feature branch is auto-deleted.
-13. **Staging deploys automatically** via `deploy-staging.yml` on push to `main`.
-14. **Move ticket** `🚀 In Progress` → `✅ Done` → archive in `.tasks/archive.md`.
-15. **Decision log** entry if the change involved a material decision.
+4. **Open a PR** against `main` and fill the PR template.
+5. **CI re-runs all gates** in a clean environment (lint, typecheck, test, build, docker, lighthouse).
+6. **(Optional) Add the `preview` label** to deploy a Firebase Hosting preview
+   channel and run Playwright E2E against the preview URL.
+7. **Request reviewer** per CODEOWNERS (4h SLA).
+8. **Address review** — push fixup commits; pre-commit / pre-push enforced again.
+9. **Squash-merge to `main`** when approved. Feature branch is auto-deleted.
+10. **Staging deploys automatically** via `deploy-staging.yml` on push to `main`.
 
 ## Releases (production)
 
@@ -86,9 +82,9 @@ git tag -a v0.2.0 -m "Sprint 2 — Auth + Products CRUD"
 git push origin v0.2.0
 ```
 
-The tag push triggers `deploy-production.yml`, which builds and deploys to Cloud Run + Firebase Hosting production targets. Deploy failure pages the on-call via Slack + PagerDuty (alert A9).
-
-Record the release in `docs/governance/decision-log.md`.
+The tag push triggers `deploy-production.yml`, which builds and deploys to
+Cloud Run + Firebase Hosting production targets. Deploy failure pages the
+on-call via Slack + PagerDuty.
 
 ## Hotfix
 
@@ -96,20 +92,20 @@ Same flow as a feature — hotfixes still go through `main` via PR:
 
 ```bash
 git checkout main && git pull
-git checkout -b hotfix/MUGA-99-auth-bypass
+git checkout -b hotfix/auth-bypass
 # ... fix ...
-git commit -m "hotfix(backend): close auth bypass (MUGA-99)"
-git push -u origin hotfix/MUGA-99-auth-bypass
-# Open PR hotfix/... → main, get review, squash-merge.
+git commit -m "hotfix(backend): close auth bypass"
+git push -u origin hotfix/auth-bypass
+# Open PR → review → squash-merge.
 # Cut a new SemVer tag immediately after merge.
 git checkout main && git pull
-git tag -a v0.2.1 -m "Hotfix: MUGA-99 auth bypass"
+git tag -a v0.2.1 -m "Hotfix release"
 git push origin v0.2.1
 ```
 
 ## Forbidden
 
-- `--no-verify` on any Husky hook without a Decision Log entry + approval from Backend or Scrum Master.
+- `--no-verify` on any Husky hook (discouraged; document why in the PR if unavoidable).
 - `git push --force` to `main`.
 - Direct commits to `main` (must go through PR).
 - Merge commits (squash only; linear history enforced).
@@ -120,7 +116,7 @@ git push origin v0.2.1
 
 Configured on GitHub:
 
-- Required CI checks: `install`, `lint`, `typecheck`, `test`, `build`, `e2e`, `docker`, `lighthouse` (on PR).
+- Required CI checks: `install`, `lint`, `typecheck`, `test`, `build`, `docker`, `lighthouse` (on PR).
 - Required reviews: ≥ 1 CODEOWNERS approval.
 - Linear history (squash merges only).
 - Force push blocked.

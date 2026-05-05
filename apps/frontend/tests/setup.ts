@@ -1,6 +1,19 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
+import i18next from "i18next";
+import { initReactI18next } from "react-i18next";
 import { afterEach, beforeAll, beforeEach } from "vitest";
+
+import enAdmin from "../locales/en/admin.json";
+import enAuth from "../locales/en/auth.json";
+import enCommon from "../locales/en/common.json";
+import enErrors from "../locales/en/errors.json";
+import enProducts from "../locales/en/products.json";
+import nlAdmin from "../locales/nl/admin.json";
+import nlAuth from "../locales/nl/auth.json";
+import nlCommon from "../locales/nl/common.json";
+import nlErrors from "../locales/nl/errors.json";
+import nlProducts from "../locales/nl/products.json";
 
 const buildLocalStoragePolyfill = (): Storage => {
   const store = new Map<string, string>();
@@ -56,6 +69,36 @@ beforeAll(() => {
       writable: true,
     });
   }
+
+  // Initialise i18next synchronously with the real catalogs so component
+  // tests don't have to mock useTranslation. The production app uses
+  // i18next-http-backend to lazy-load catalogs (which jsdom can't reach);
+  // in tests we ship them inline.
+  void i18next.use(initReactI18next).init({
+    lng: "en",
+    fallbackLng: "en",
+    supportedLngs: ["en", "nl"],
+    ns: ["common", "auth", "products", "admin", "errors"],
+    defaultNS: "common",
+    resources: {
+      en: {
+        common: enCommon,
+        auth: enAuth,
+        admin: enAdmin,
+        products: enProducts,
+        errors: enErrors,
+      },
+      nl: {
+        common: nlCommon,
+        auth: nlAuth,
+        admin: nlAdmin,
+        products: nlProducts,
+        errors: nlErrors,
+      },
+    },
+    interpolation: { escapeValue: false },
+    react: { useSuspense: false },
+  });
 });
 
 beforeEach(() => {

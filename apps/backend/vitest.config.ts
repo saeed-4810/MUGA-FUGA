@@ -23,11 +23,9 @@ export default defineConfig({
         // 2026-05-04-006 and OPERATING_DOR_DOD.md §5.3.
         "src/config/sentry.ts",
         "src/lib/firebase.ts",
-        // Feature routes — tests are owned by the feature ticket that ships them
-        // (MUGA-1 → me + auth; MUGA-3 → products + docs).
-        // MUGA-1 closure: removed `src/middleware/auth.ts` and `src/routes/me.ts`.
-        // MUGA-3 closure: removed `src/routes/products.ts` and `src/routes/docs.ts`.
-        // No remaining feature-route exclusions. See Decision Log 2026-05-04-006.
+        // Feature routes — tests ship alongside their owning feature.
+        // No remaining feature-route exclusions (auth, me, products, docs are
+        // all covered by their tests/*.test.ts siblings).
       ],
       thresholds: {
         statements: 100,
