@@ -33,13 +33,13 @@ export default defineConfig({
         // Now covered by their .test.tsx/.test.ts siblings:
         //   AuthContext, LoginPage, RequireAuth, UserMenu (auth)
         //   api, uploads, ProductsPage, CreateProductPage (products)
+        //   AdminQueuePage (admin queue)
         "src/lib/web-vitals.ts",
         "src/components/AppShell.tsx",
         "src/components/LocaleSwitcher.tsx",
         "src/components/PageHeader.tsx",
         "src/components/ThemeToggle.tsx",
         "src/pages/DashboardPage.tsx",
-        "src/pages/AdminQueuePage.tsx",
         "src/pages/NotFoundPage.tsx",
         "src/routes/**",
       ],
