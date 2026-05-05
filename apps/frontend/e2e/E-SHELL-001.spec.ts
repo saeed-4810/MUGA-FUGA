@@ -28,10 +28,6 @@ test("E-SHELL-001 — landing renders with theme toggle and locale switcher", as
   await expect(page.getByTestId("locale-switcher")).toBeVisible();
 });
 
-test.fixme("E-PROD-001 — customer creates a product (signed-URL upload)", async () => {
-  // Will be implemented when the products frontend ships.
-});
-
 test.fixme("E-ADMIN-001 — admin approves a pending product", async () => {
   // Will be implemented when the admin queue frontend ships.
 });
