@@ -24,18 +24,28 @@ test.describe("E-AUTH-001 — Google sign-in flow", () => {
     await expect(
       page.getByText("MUGA", { exact: true }).filter({ visible: true }).first()
     ).toBeVisible();
-    // Pre-auth chrome: locale + theme always reachable
-    await expect(page.getByTestId("locale-switcher")).toBeVisible();
-    await expect(page.getByTestId("theme-toggle")).toBeVisible();
-    // Sign-in CTA is the call-to-action on the login page
-    await expect(page.getByRole("button", { name: /sign in with google/i })).toBeVisible();
+    // Pre-auth chrome: locale + theme always reachable from the header
+    // (banner). The LoginPage also renders an in-page copy in <main>, so we
+    // scope to the banner to keep the locator unambiguous and to assert the
+    // chrome the user actually sees on every other route too.
+    const banner = page.getByRole("banner");
+    await expect(banner.getByTestId("locale-switcher")).toBeVisible();
+    await expect(banner.getByTestId("theme-toggle")).toBeVisible();
+    // Sign-in CTA is the call-to-action on the login page. The header
+    // <UserMenu /> renders an identical button when unauthenticated, so we
+    // scope the locator to the <main> landmark to disambiguate.
+    await expect(
+      page.getByRole("main").getByRole("button", { name: /sign in with google/i })
+    ).toBeVisible();
   });
 
   test("E-AUTH-001b — unauthenticated visit to /products redirects to /login", async ({ page }) => {
     await page.goto("/products");
     await page.waitForURL(/\/login$/);
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole("button", { name: /sign in with google/i })).toBeVisible();
+    await expect(
+      page.getByRole("main").getByRole("button", { name: /sign in with google/i })
+    ).toBeVisible();
   });
 
   test("E-AUTH-001c — unauthenticated visit to /admin/queue redirects to /login", async ({
@@ -51,7 +61,9 @@ test.describe("E-AUTH-001 — Google sign-in flow", () => {
     context,
   }) => {
     await page.goto("/login");
-    const cta = page.getByRole("button", { name: /sign in with google/i });
+    // Scope to <main> — the header <UserMenu /> renders the same label when
+    // unauthenticated, which would otherwise trip strict mode.
+    const cta = page.getByRole("main").getByRole("button", { name: /sign in with google/i });
     await expect(cta).toBeVisible();
     // If firebase isn't configured in this environment the button is disabled
     // and a banner explains why — accept that as the valid alternative branch.
@@ -73,7 +85,10 @@ test.describe("E-AUTH-001 — Google sign-in flow", () => {
 
   test("E-AUTH-001e — locale switcher persists across navigations", async ({ page }) => {
     await page.goto("/login");
-    const switcher = page.getByTestId("locale-switcher");
+    // Use the header (banner) switcher — the LoginPage also renders an
+    // in-page copy in <main>, which would trip strict mode on the global
+    // testid query. The header copy is the one users see across the app.
+    const switcher = page.getByRole("banner").getByTestId("locale-switcher");
     await switcher.selectOption("nl");
     // Round-trip through a navigation to assert the choice survives
     await page.reload();

@@ -20,6 +20,21 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp|avif)'));
     }
 
+    // Artist images (ADR-007 — Sprint 2):
+    //   path: artist-images/{uid}/{filename}
+    //
+    // Same policy as cover art — backend signed URL is the primary path,
+    // direct owner PUT works as defense-in-depth. Read is signed-in only
+    // (artists with status=published are publicly listable via /api/artists,
+    // but the image URL itself is short-lived; renderers fetch via the
+    // backend-issued signed read URL or the Firebase Hosting CDN).
+    match /artist-images/{uid}/{file=**} {
+      allow read: if signedIn() || isAdmin();
+      allow write: if isAdmin() || (signedIn() && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|avif)'));
+    }
+
     match /{path=**} {
       allow read, write: if false;
     }

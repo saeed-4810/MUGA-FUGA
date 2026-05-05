@@ -12,6 +12,7 @@ import { Sentry } from "./config/sentry.js";
 import { emitAlert } from "./lib/alerting.js";
 import { buildErrorHandler, notFoundHandler } from "./middleware/error.js";
 import { requestIdMiddleware } from "./middleware/requestId.js";
+import { artistsRouter } from "./routes/artists.js";
 import { docsRouter } from "./routes/docs.js";
 import { healthRouter } from "./routes/health.js";
 import { meRouter } from "./routes/me.js";
@@ -63,6 +64,7 @@ export const buildApp = (options: BuildAppOptions = {}): Express => {
   app.use(docsRouter());
   app.use("/api/me", meRouter(env));
   app.use("/api/products", productsRouter(env));
+  app.use("/api/artists", artistsRouter(env));
 
   app.use(notFoundHandler);
   app.use(

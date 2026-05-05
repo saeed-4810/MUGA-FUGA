@@ -36,23 +36,3 @@ export type CreateProductInput = z.infer<typeof CreateProductInput>;
 
 export const UpdateProductInput = CreateProductInput.partial();
 export type UpdateProductInput = z.infer<typeof UpdateProductInput>;
-
-// Signed-URL request for cover-art upload.
-export const SignedUploadInput = z.object({
-  contentType: z
-    .string()
-    .regex(/^image\/(jpeg|png|webp|avif)$/i, "Only JPEG, PNG, WEBP, or AVIF images are allowed"),
-  fileSize: z
-    .number()
-    .int()
-    .positive()
-    .max(5 * 1024 * 1024, "Maximum cover-art file size is 5 MB"),
-});
-export type SignedUploadInput = z.infer<typeof SignedUploadInput>;
-
-export const SignedUploadResponse = z.object({
-  uploadUrl: z.string().url(),
-  objectPath: z.string().min(1),
-  expiresAt: z.string().datetime(),
-});
-export type SignedUploadResponse = z.infer<typeof SignedUploadResponse>;

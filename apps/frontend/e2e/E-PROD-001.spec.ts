@@ -15,7 +15,11 @@ test.describe("E-PROD-001 — Products list + create", () => {
     await page.goto("/products");
     await page.waitForURL(/\/login$/);
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole("button", { name: /sign in with google/i })).toBeVisible();
+    // Scope to <main> — the header <UserMenu /> renders the same label when
+    // unauthenticated, which would otherwise trip Playwright's strict mode.
+    await expect(
+      page.getByRole("main").getByRole("button", { name: /sign in with google/i })
+    ).toBeVisible();
   });
 
   test("E-PROD-001b — /products/new without auth redirects to /login", async ({ page }) => {
@@ -29,7 +33,8 @@ test.describe("E-PROD-001 — Products list + create", () => {
     context,
   }) => {
     await page.goto("/login");
-    const cta = page.getByRole("button", { name: /sign in with google/i });
+    // Scope to <main> — see note in E-PROD-001a.
+    const cta = page.getByRole("main").getByRole("button", { name: /sign in with google/i });
     await expect(cta).toBeVisible();
     if (await cta.isDisabled()) {
       await expect(page.getByRole("status")).toBeVisible();

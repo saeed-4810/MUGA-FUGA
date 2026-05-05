@@ -5,13 +5,13 @@ import { Errors } from "../domain/errors.js";
 import {
   CreateProductInput,
   UpdateProductInput,
-  SignedUploadInput,
   ProductSchema,
   type Product,
   type ProductStatus,
 } from "../domain/product.js";
 import { emitAlert } from "../lib/alerting.js";
 import { db, bucket } from "../lib/firebase.js";
+import { SignedUploadInput, mintSignedUpload } from "../lib/signedUpload.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const COLLECTION = "products";
@@ -25,20 +25,8 @@ export const productsRouter = (env: Env): ExpressRouter => {
   router.post("/signed-upload", async (req, res, next) => {
     try {
       const input = SignedUploadInput.parse(req.body);
-      const objectPath = `${COVER_PREFIX}/${req.user!.uid}/${Date.now()}-${crypto.randomUUID()}`;
-      const file = bucket(env).file(objectPath);
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-      const [uploadUrl] = await file.getSignedUrl({
-        version: "v4",
-        action: "write",
-        expires: expiresAt,
-        contentType: input.contentType,
-      });
-      res.status(201).json({
-        uploadUrl,
-        objectPath,
-        expiresAt: expiresAt.toISOString(),
-      });
+      const out = await mintSignedUpload(env, COVER_PREFIX, req.user!.uid, input);
+      res.status(201).json(out);
     } catch (err) {
       // Emit upload-validation failure event for spike alerting (A5)
       void emitAlert(env, {

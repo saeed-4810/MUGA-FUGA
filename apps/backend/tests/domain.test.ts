@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { Role } from "../src/domain/auth.js";
-import {
-  CreateProductInput,
-  ProductSchema,
-  SignedUploadInput,
-  UpdateProductInput,
-} from "../src/domain/product.js";
+import { CreateProductInput, ProductSchema, UpdateProductInput } from "../src/domain/product.js";
+import { SignedUploadInput } from "../src/lib/signedUpload.js";
 
 describe("T-DOM-001..006: domain schemas", () => {
   it("T-DOM-001 — CreateProductInput accepts a valid payload", () => {

@@ -24,14 +24,23 @@ test.describe("E-ADMIN-001 — admin approval queue", () => {
     await page.goto("/admin/queue");
     await page.waitForURL(/\/login$/);
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole("button", { name: /sign in with google/i })).toBeVisible();
+    // Scope to <main> — the header <UserMenu /> renders the same "Sign in
+    // with Google" label when unauthenticated, which would otherwise trip
+    // Playwright's strict mode on the global query.
+    await expect(
+      page.getByRole("main").getByRole("button", { name: /sign in with google/i })
+    ).toBeVisible();
   });
 
   test("E-ADMIN-001b — login chrome stays usable after a deep-link redirect", async ({ page }) => {
     await page.goto("/admin/queue");
     await page.waitForURL(/\/login$/);
-    // Theme toggle + locale switcher must remain reachable after the redirect.
-    await expect(page.getByTestId("theme-toggle")).toBeVisible();
-    await expect(page.getByTestId("locale-switcher")).toBeVisible();
+    // Theme toggle + locale switcher must remain reachable in the header
+    // (banner) after the redirect. The LoginPage also renders an in-page
+    // copy of both, so we scope to the banner to keep the locator
+    // unambiguous and to test the chrome the user actually relies on.
+    const banner = page.getByRole("banner");
+    await expect(banner.getByTestId("theme-toggle")).toBeVisible();
+    await expect(banner.getByTestId("locale-switcher")).toBeVisible();
   });
 });

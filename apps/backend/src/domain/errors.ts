@@ -28,6 +28,7 @@ export const Errors = {
   notFound: (resource: string) => new AppError(404, "NOT_FOUND", `${resource} not found`),
   validation: (details: Record<string, unknown>) =>
     new AppError(400, "VALIDATION_ERROR", "Invalid request payload", details),
-  conflict: (msg: string) => new AppError(409, "CONFLICT", msg),
+  conflict: (msg: string, details?: Record<string, unknown>) =>
+    new AppError(409, "CONFLICT", msg, details),
   internal: (msg = "Internal server error") => new AppError(500, "INTERNAL", msg),
 };

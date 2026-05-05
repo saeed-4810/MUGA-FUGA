@@ -76,6 +76,38 @@ export const openApiSpec = {
           emailVerified: { type: "boolean" },
         },
       },
+      Artist: {
+        type: "object",
+        required: [
+          "id",
+          "name",
+          "name_lc",
+          "slug",
+          "status",
+          "ownerUid",
+          "ownerEmail",
+          "createdAt",
+          "updatedAt",
+        ],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string", maxLength: 120 },
+          name_lc: { type: "string", maxLength: 120, description: "Case-insensitive lookup field" },
+          slug: { type: "string", maxLength: 140 },
+          bio: { type: "string", maxLength: 2000 },
+          imageUrl: { type: "string", format: "uri" },
+          imageObjectPath: { type: "string" },
+          country: { type: "string", pattern: "^[A-Z]{2}$", description: "ISO 3166-1 alpha-2" },
+          status: { type: "string", enum: ["pending", "published", "rejected"] },
+          ownerUid: { type: "string" },
+          ownerEmail: { type: "string", format: "email" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          approvedAt: { type: "string", format: "date-time" },
+          approvedBy: { type: "string" },
+          rejectionReason: { type: "string" },
+        },
+      },
     },
   },
   security: [{ bearerAuth: [] }],
@@ -202,6 +234,102 @@ export const openApiSpec = {
     },
     "/products/{id}/reject": {
       post: { summary: "Admin reject (CTR-009)", responses: { "200": { description: "OK" } } },
+    },
+    "/artists/signed-upload": {
+      post: {
+        summary: "Issue artist-image upload signed URL (CTR-100)",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["contentType", "fileSize"],
+                properties: {
+                  contentType: { type: "string", example: "image/jpeg" },
+                  fileSize: { type: "integer", maximum: 5242880 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Signed URL issued",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["uploadUrl", "objectPath", "expiresAt"],
+                  properties: {
+                    uploadUrl: { type: "string", format: "uri" },
+                    objectPath: { type: "string" },
+                    expiresAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Invalid content type or size" },
+        },
+      },
+    },
+    "/artists": {
+      post: {
+        summary: "Create artist (CTR-101) — customer→pending, admin→published",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name: { type: "string", maxLength: 120 },
+                  bio: { type: "string", maxLength: 2000 },
+                  country: { type: "string", pattern: "^[A-Z]{2}$" },
+                  imageObjectPath: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Artist created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Artist" } } },
+          },
+          "409": { description: "Name or slug already exists" },
+        },
+      },
+      get: {
+        summary: "List artists (CTR-102)",
+        parameters: [
+          {
+            name: "status",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "Single status or comma list (admin-only filter)",
+          },
+          {
+            name: "ownerUid",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "Admin filter; customer scope to own artists",
+          },
+        ],
+        responses: { "200": { description: "OK" } },
+      },
+    },
+    "/artists/{id}": {
+      get: { summary: "Read artist (CTR-103)", responses: { "200": { description: "OK" } } },
+      patch: { summary: "Update artist (CTR-104)", responses: { "200": { description: "OK" } } },
+      delete: {
+        summary: "Delete artist (CTR-105) — 409 if referenced by any product",
+        responses: { "204": { description: "No content" } },
+      },
     },
   },
 } as const;
