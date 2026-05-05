@@ -110,6 +110,15 @@ for SUFFIX in staging production; do
       --member="serviceAccount:$RUNTIME_SA" --role="$role" --condition=None --quiet
   done
 
+  # Cloud Storage v4 signed URLs require the runtime service account to call
+  # iam.serviceAccounts.signBlob. Scope Token Creator to the runtime service
+  # account itself (least privilege) rather than granting it project-wide.
+  gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
+    --project="$PROJECT" \
+    --member="serviceAccount:$RUNTIME_SA" \
+    --role="roles/iam.serviceAccountTokenCreator" \
+    --quiet
+
   # 8. GitHub Actions deploy SA + roles
   gcloud iam service-accounts create github-deploy \
     --display-name="GitHub Actions Deployer ($SUFFIX)" --project="$PROJECT"
@@ -392,6 +401,14 @@ gcloud artifacts repositories list --location=europe-west1 --project=muga-stagin
 # 5. Service accounts
 gcloud iam service-accounts list --project=muga-staging
 # expect: muga-backend@..., github-deploy@...
+
+# 5b. Runtime SA can sign Storage v4 upload URLs
+gcloud iam service-accounts get-iam-policy \
+  muga-backend@muga-staging.iam.gserviceaccount.com \
+  --project=muga-staging \
+  --flatten="bindings[].members" \
+  --filter="bindings.role:roles/iam.serviceAccountTokenCreator AND bindings.members:serviceAccount:muga-backend@muga-staging.iam.gserviceaccount.com"
+# expect: one binding granting roles/iam.serviceAccountTokenCreator to itself
 
 # 6. Workload Identity pool
 gcloud iam workload-identity-pools list --location=global --project=muga-staging

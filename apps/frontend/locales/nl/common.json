@@ -4,7 +4,9 @@
     "dashboard": "Dashboard",
     "products": "Producten",
     "createProduct": "Product aanmaken",
+    "artists": "Artiesten",
     "adminQueue": "Goedkeuringswachtrij",
+    "pendingReview": "{{count}} in beoordeling",
     "signIn": "Inloggen"
   },
   "topbar": {

@@ -4,7 +4,9 @@
     "dashboard": "Dashboard",
     "products": "Products",
     "createProduct": "Create product",
+    "artists": "Artists",
     "adminQueue": "Approval queue",
+    "pendingReview": "{{count}} pending review",
     "signIn": "Sign in"
   },
   "topbar": {

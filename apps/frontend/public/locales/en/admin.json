@@ -18,5 +18,81 @@
   },
   "reject": {
     "promptReason": "Reason for rejection?"
+  },
+  "artists": {
+    "title": "Artists",
+    "subtitle": "Manage artist profiles and review customer submissions.",
+    "filters": { "status": "Status" },
+    "status": {
+      "published": "Published",
+      "pending": "Pending",
+      "rejected": "Rejected"
+    },
+    "columns": {
+      "artist": "Artist",
+      "country": "Country",
+      "status": "Status",
+      "owner": "Created by",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "actions": {
+      "create": "Create artist",
+      "edit": "Edit",
+      "delete": "Delete",
+      "editNamed": "Edit {{name}}",
+      "deleteNamed": "Delete {{name}}",
+      "approveNamed": "Approve {{name}}",
+      "rejectNamed": "Reject {{name}}"
+    },
+    "empty": {
+      "published": {
+        "title": "No published artists yet",
+        "body": "Create the first artist profile to make it available for products."
+      },
+      "pending": {
+        "title": "No artists pending review",
+        "body": "Customer artist requests will appear here."
+      },
+      "rejected": {
+        "title": "No rejected artists",
+        "body": "Rejected artist requests are kept here for audit and corrections."
+      }
+    },
+    "editor": {
+      "createTitle": "Create artist",
+      "editTitle": "Edit artist",
+      "subtitle": "Profile details are used across product creation and catalog views.",
+      "fields": {
+        "name": "Name",
+        "bio": "Bio",
+        "country": "Country",
+        "countryHint": "Optional ISO-2 country code, for example NL or US.",
+        "image": "Image"
+      },
+      "previewAlt": "Artist image preview",
+      "errors": {
+        "upload": "Image upload failed. Try again.",
+        "uploadStatus": "Image upload failed with status {{status}}. Try again."
+      },
+      "actions": {
+        "close": "Close",
+        "cancel": "Cancel",
+        "save": "Save artist",
+        "saving": "Saving…"
+      }
+    },
+    "delete": {
+      "title": "Delete artist?",
+      "body": "This permanently deletes {{name}} if no products reference the artist.",
+      "blockedTitle": "Reassign products first",
+      "blockedBody": "{{count}} products reference this artist. Reassign them before deleting.",
+      "reassign": "Reassign",
+      "hasMore": "More products also reference this artist.",
+      "cancel": "Cancel",
+      "confirm": "Delete artist"
+    },
+    "imageAlt": "Cover image for {{name}}",
+    "noCountry": "—"
   }
 }

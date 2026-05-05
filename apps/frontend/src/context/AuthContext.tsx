@@ -23,11 +23,24 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+export const isLocalhostUrl = (url: string): boolean => new URL(url).hostname === "localhost";
+
+export const readLocalhostE2eUser = (url: string, storage: Storage): string | null => {
+  if (!isLocalhostUrl(url)) return null;
+  return storage.getItem("muga:e2e-user");
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<MugaUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const e2eUser = readLocalhostE2eUser(window.location.href, sessionStorage);
+    if (e2eUser) {
+      setUser(JSON.parse(e2eUser) as MugaUser);
+      setLoading(false);
+      return () => undefined;
+    }
     const unsub = onAuthStateChanged(async (fb: User | null) => {
       if (!fb) {
         setUser(null);

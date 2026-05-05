@@ -35,7 +35,6 @@ export default defineConfig({
         //   api, uploads, ProductsPage, CreateProductPage (products)
         //   AdminQueuePage (admin queue)
         "src/lib/web-vitals.ts",
-        "src/components/AppShell.tsx",
         "src/components/LocaleSwitcher.tsx",
         "src/components/PageHeader.tsx",
         "src/components/ThemeToggle.tsx",

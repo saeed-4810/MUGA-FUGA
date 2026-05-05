@@ -49,7 +49,7 @@ vi.mock("../lib/api", () => ({
   },
 }));
 
-import { AuthProvider, useAuth } from "./AuthContext";
+import { AuthProvider, isLocalhostUrl, readLocalhostE2eUser, useAuth } from "./AuthContext";
 
 const Probe = () => {
   const { user, loading, signIn, signOut } = useAuth();
@@ -71,6 +71,7 @@ beforeEach(() => {
   fbState.cb = null;
   fbState.signInImpl = vi.fn(async () => ({}));
   fbState.signOutImpl = vi.fn(async () => undefined);
+  sessionStorage.clear();
   apiPostMock.mockReset();
 });
 
@@ -101,6 +102,29 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
     expect(screen.getByTestId("loading").textContent).toBe("false");
     expect(screen.getByTestId("uid").textContent).toBe("anon");
     expect(screen.getByTestId("role").textContent).toBe("none");
+  });
+
+  it("U-AUTH-CTX-002b — localhost e2e override seeds a customer user", async () => {
+    sessionStorage.setItem(
+      "muga:e2e-user",
+      JSON.stringify({ uid: "e2e-customer", email: "e2e@example.com", role: "customer" })
+    );
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+    await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
+    expect(screen.getByTestId("uid").textContent).toBe("e2e-customer");
+    expect(screen.getByTestId("role").textContent).toBe("customer");
+    expect(fbState.cb).toBeNull();
+  });
+
+  it("U-AUTH-CTX-002c — localhost detection rejects non-local URLs", () => {
+    expect(isLocalhostUrl("http://localhost:5174/login")).toBe(true);
+    expect(isLocalhostUrl("https://muga-staging.web.app/login")).toBe(false);
+    expect(readLocalhostE2eUser("https://muga-staging.web.app/login", sessionStorage)).toBeNull();
+    expect(readLocalhostE2eUser("http://localhost:5174/login", sessionStorage)).toBeNull();
   });
 
   it("U-AUTH-CTX-003 — successful sign-in: /me/bootstrap returns admin → role=admin, getIdToken refreshed", async () => {

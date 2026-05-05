@@ -1,17 +1,63 @@
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
+import { api } from "../lib/api";
 
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
 
+const usePendingReviewCount = (enabled: boolean) => {
+  const [count, setCount] = useState(0);
+
+  const refresh = useCallback(() => {
+    if (!enabled) {
+      setCount(0);
+      return;
+    }
+    void Promise.all([
+      api.get<{ items: unknown[] }>("/products?status=pending"),
+      api.get<{ items: unknown[] }>("/artists?status=pending"),
+    ])
+      .then(([products, artists]) => setCount(products.items.length + artists.items.length))
+      .catch(() => setCount(0));
+  }, [enabled]);
+
+  useEffect(() => {
+    refresh();
+    if (!enabled) return undefined;
+    const id = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [enabled, refresh]);
+
+  return count;
+};
+
+const PendingBadge = ({ count }: { count: number }) => {
+  const { t } = useTranslation("common");
+  if (count <= 0) return null;
+  return (
+    <span
+      className="bg-brand-500 ml-auto rounded-full px-2 py-0.5 text-xs font-bold text-white"
+      aria-label={t("nav.pendingReview", { count })}
+    >
+      {count}
+    </span>
+  );
+};
+
 const Sidebar = () => {
   const { t } = useTranslation("common");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const pendingCount = usePendingReviewCount(isAdmin);
   const navItem = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
       isActive
@@ -32,9 +78,15 @@ const Sidebar = () => {
           {t("nav.createProduct")}
         </NavLink>
         {isAdmin && (
-          <NavLink to="/admin/queue" className={navItem}>
-            {t("nav.adminQueue")}
-          </NavLink>
+          <>
+            <NavLink to="/admin/artists" className={navItem}>
+              {t("nav.artists")}
+            </NavLink>
+            <NavLink to="/admin/queue" className={navItem}>
+              <span>{t("nav.adminQueue")}</span>
+              <PendingBadge count={pendingCount} />
+            </NavLink>
+          </>
         )}
       </nav>
     </aside>

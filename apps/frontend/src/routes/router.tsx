@@ -7,6 +7,7 @@ import { DashboardPage } from "../pages/DashboardPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ProductsPage } from "../pages/ProductsPage";
+import { ArtistsPage } from "../pages/admin/ArtistsPage";
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
       { path: "login", element: <LoginPage /> },
       { path: "products", element: <ProductsPage /> },
       { path: "products/new", element: <CreateProductPage /> },
+      { path: "admin/artists", element: <ArtistsPage /> },
       { path: "admin/queue", element: <AdminQueuePage /> },
     ],
   },
