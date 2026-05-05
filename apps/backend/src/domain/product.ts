@@ -11,7 +11,7 @@ export type ProductStatus = z.infer<typeof ProductStatus>;
 export const ProductSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(120),
-  artistName: z.string().min(1).max(120),
+  artistId: z.string().min(1),
   coverArtPath: z.string().min(1), // Firebase Storage object path
   coverArtUrl: z.string().url().optional(), // CDN URL (signed or public)
   status: ProductStatus,
@@ -29,7 +29,7 @@ export type Product = z.infer<typeof ProductSchema>;
 // Create input (multipart upload finalised by /products/finalize-upload).
 export const CreateProductInput = z.object({
   name: z.string().min(1).max(120),
-  artistName: z.string().min(1).max(120),
+  artistId: z.string().min(1),
   coverArtPath: z.string().min(1),
 });
 export type CreateProductInput = z.infer<typeof CreateProductInput>;

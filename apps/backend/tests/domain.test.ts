@@ -8,7 +8,7 @@ describe("T-DOM-001..006: domain schemas", () => {
   it("T-DOM-001 — CreateProductInput accepts a valid payload", () => {
     const ok = CreateProductInput.parse({
       name: "First Light",
-      artistName: "Aurora",
+      artistId: "art-1",
       coverArtPath: "cover-art/abc/123.jpg",
     });
     expect(ok.name).toBe("First Light");
@@ -16,7 +16,7 @@ describe("T-DOM-001..006: domain schemas", () => {
 
   it("T-DOM-002 — CreateProductInput rejects empty name", () => {
     expect(() =>
-      CreateProductInput.parse({ name: "", artistName: "x", coverArtPath: "p" })
+      CreateProductInput.parse({ name: "", artistId: "art-1", coverArtPath: "p" })
     ).toThrow();
   });
 
@@ -43,7 +43,7 @@ describe("T-DOM-001..006: domain schemas", () => {
       ProductSchema.parse({
         id: "p1",
         name: "Album",
-        artistName: "Artist",
+        artistId: "art-1",
         coverArtPath: "cover-art/u/1.jpg",
         status: "pending",
         ownerUid: "u1",

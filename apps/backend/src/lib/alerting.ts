@@ -17,6 +17,7 @@ export type AlertKind =
   | "auth_failure" // single auth failure event (counted via log-based metric)
   | "upload_validation_fail" // single upload validation failure
   | "admin_action" // admin approve/reject (informational)
+  | "admin_override" // admin attaches product to pending artist (informational)
   | "ready_check_failed" // /healthz/ready degraded
   | "ready_check_slow" // /healthz/ready exceeded latency budget
   | "synthetic" // drill / smoke event

@@ -8,6 +8,7 @@ import request from "supertest";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import type { Env } from "../src/config/env.js";
+import type { Artist } from "../src/domain/artist.js";
 import { AppError } from "../src/domain/errors.js";
 import { ProductSchema, type Product } from "../src/domain/product.js";
 import { errorHandler, notFoundHandler } from "../src/middleware/error.js";
@@ -24,6 +25,7 @@ import { requestIdMiddleware } from "../src/middleware/requestId.js";
  *   T-PROD-007        Read one (CTR-005)
  *   T-PROD-008..009   Update (CTR-006)
  *   T-PROD-010..011   Delete (CTR-007)
+ *   T-PROD-012..015   Artist FK validation + dereference (MUGA-18)
  *   T-ADMIN-001..002  Approve (CTR-008)
  *   T-ADMIN-003       Reject (CTR-009)
  *
@@ -39,6 +41,8 @@ import { requestIdMiddleware } from "../src/middleware/requestId.js";
 // ─── Controllable Firestore + Storage state ────────────────────────────
 type DocRec = { data: Product };
 const store: Map<string, DocRec> = new Map();
+type ArtistRec = { data: Artist };
+const artistStore: Map<string, ArtistRec> = new Map();
 const dbBehaviour: {
   getMode: "ok" | "throw";
   setMode: "ok" | "throw";
@@ -94,13 +98,26 @@ vi.mock("../src/lib/firebase.js", () => {
     },
   });
 
-  const collection = () => ({
-    doc: (id?: string) => makeDocRef(id ?? mintId()),
-    orderBy: makeQuery().orderBy,
-    limit: makeQuery().limit,
-    where: makeQuery().where,
-    get: makeQuery().get,
+  const makeArtistDocRef = (id: string) => ({
+    id,
+    get: async () => {
+      const rec = artistStore.get(id);
+      return { exists: !!rec, data: () => rec?.data };
+    },
   });
+
+  const collection = (name: string) => {
+    if (name === "artists") {
+      return { doc: (id: string) => makeArtistDocRef(id) };
+    }
+    return {
+      doc: (id?: string) => makeDocRef(id ?? mintId()),
+      orderBy: makeQuery().orderBy,
+      limit: makeQuery().limit,
+      where: makeQuery().where,
+      get: makeQuery().get,
+    };
+  };
 
   return {
     db: () => ({ collection }),
@@ -223,7 +240,7 @@ const seedProduct = (overrides: Partial<Product> = {}): Product => {
   const product: Product = {
     id,
     name: "Seed Album",
-    artistName: "Seed Artist",
+    artistId: "art-1",
     coverArtPath: `cover-art/${id}/seed.jpg`,
     status: "pending",
     ownerUid: "uid-cust",
@@ -236,8 +253,30 @@ const seedProduct = (overrides: Partial<Product> = {}): Product => {
   return product;
 };
 
+const seedArtist = (overrides: Partial<Artist> = {}): Artist => {
+  const now = new Date().toISOString();
+  const id = overrides.id ?? "art-1";
+  const name = overrides.name ?? "Seed Artist";
+  const artist: Artist = {
+    id,
+    name,
+    name_lc: name.trim().toLowerCase(),
+    slug: name.trim().toLowerCase().replace(/\s+/g, "-"),
+    status: "published",
+    ownerUid: "uid-cust",
+    ownerEmail: "cust@example.com",
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+  artistStore.set(id, { data: artist });
+  return artist;
+};
+
 beforeEach(() => {
   store.clear();
+  artistStore.clear();
+  seedArtist();
   docCounter = 0;
   signedUrlCalls.length = 0;
   objectDeleteCalls.length = 0;
@@ -381,13 +420,18 @@ describe("T-PROD-001..003: POST /products (CTR-003)", () => {
   it("T-PROD-001 — customer creates product → status=pending", async () => {
     const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
       name: "Neon Lullabies",
-      artistName: "Aurora",
+      artistId: "art-1",
       coverArtPath: "cover-art/uid-cust/123-abc",
     });
     expect(res.status).toBe(201);
     expect(res.body.status).toBe("pending");
     expect(res.body.ownerUid).toBe("uid-cust");
     expect(res.body.ownerEmail).toBe("cust@example.com");
+    expect(res.body.artist).toMatchObject({
+      id: "art-1",
+      name: "Seed Artist",
+      status: "published",
+    });
     expect(res.body.approvedAt).toBeUndefined();
     // Response body is a valid Product per the domain schema.
     expect(() => ProductSchema.parse(res.body)).not.toThrow();
@@ -397,7 +441,7 @@ describe("T-PROD-001..003: POST /products (CTR-003)", () => {
   it("T-PROD-002 — admin creates product → status=published, approvedBy set", async () => {
     const res = await request(buildApp()).post("/products").set("x-test-user", ADMIN).send({
       name: "Admin Release",
-      artistName: "Admin Band",
+      artistId: "art-1",
       coverArtPath: "cover-art/uid-admin/1-x",
     });
     expect(res.status).toBe(201);
@@ -410,7 +454,7 @@ describe("T-PROD-001..003: POST /products (CTR-003)", () => {
     const res = await request(buildApp())
       .post("/products")
       .set("x-test-user", CUSTOMER)
-      .send({ artistName: "X", coverArtPath: "p" });
+      .send({ artistId: "art-1", coverArtPath: "p" });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("VALIDATION_ERROR");
   });
@@ -418,8 +462,52 @@ describe("T-PROD-001..003: POST /products (CTR-003)", () => {
   it("T-PROD-003b — unauthenticated → 401", async () => {
     const res = await request(buildApp())
       .post("/products")
-      .send({ name: "X", artistName: "Y", coverArtPath: "p" });
+      .send({ name: "X", artistId: "art-1", coverArtPath: "p" });
     expect(res.status).toBe(401);
+  });
+
+  it("T-PROD-012 — create rejects a missing artist FK with ARTIST_NOT_FOUND", async () => {
+    const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
+      name: "Missing Artist Release",
+      artistId: "missing-artist",
+      coverArtPath: "cover-art/uid-cust/missing",
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("ARTIST_NOT_FOUND");
+    expect(res.body.details.artistId).toBe("missing-artist");
+  });
+
+  it("T-PROD-013 — customer create rejects a pending artist with ARTIST_NOT_PUBLISHED", async () => {
+    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+    const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
+      name: "Pending Artist Release",
+      artistId: "art-pending",
+      coverArtPath: "cover-art/uid-cust/pending",
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
+    expect(res.body.details.artistId).toBe("art-pending");
+  });
+
+  it("T-PROD-014 — admin override creates with a pending artist and emits admin_override", async () => {
+    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const res = await request(buildApp()).post("/products").set("x-test-user", ADMIN).send({
+      name: "Admin Override Release",
+      artistId: "art-pending",
+      coverArtPath: "cover-art/uid-admin/pending",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.artist).toMatchObject({ id: "art-pending", status: "pending" });
+    const fired = info.mock.calls.find((c) => {
+      const obj = c[0] as Record<string, unknown> | undefined;
+      return obj && (obj as { alert?: { kind?: string } }).alert?.kind === "admin_override";
+    });
+    expect(fired).toBeTruthy();
+    const payload = fired![0] as Record<string, unknown>;
+    expect(payload["artistId"]).toBe("art-pending");
+    expect(payload["adminUid"]).toBe("uid-admin");
+    info.mockRestore();
   });
 });
 
@@ -445,6 +533,19 @@ describe("T-PROD-004..006: GET /products (CTR-004)", () => {
     const res = await request(buildApp()).get("/products").set("x-test-user", ADMIN);
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(3);
+  });
+
+  it("T-PROD-015 — list dereferences the current artist display object", async () => {
+    seedArtist({ id: "art-2", name: "Renamed Artist", imageUrl: "https://cdn.example.com/a.jpg" });
+    seedProduct({ id: "p1", status: "published", artistId: "art-2" });
+    const res = await request(buildApp()).get("/products").set("x-test-user", CUSTOMER);
+    expect(res.status).toBe(200);
+    expect(res.body.items[0].artist).toEqual({
+      id: "art-2",
+      name: "Renamed Artist",
+      imageUrl: "https://cdn.example.com/a.jpg",
+      status: "published",
+    });
   });
 
   it("T-PROD-005b — admin filters by status=pending", async () => {
@@ -485,6 +586,7 @@ describe("T-PROD-007: GET /products/:id (CTR-005)", () => {
     const res = await request(buildApp()).get("/products/p1").set("x-test-user", CUSTOMER);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe("p1");
+    expect(res.body.artist).toMatchObject({ id: "art-1", name: "Seed Artist" });
   });
 
   it("T-PROD-007b — owner can read their own pending product", async () => {
@@ -549,14 +651,37 @@ describe("T-PROD-008..009: PATCH /products/:id (CTR-006)", () => {
   });
 
   it("T-PROD-008c — partial update with undefined does not clobber existing field", async () => {
-    seedProduct({ id: "p1", name: "Keep Me", artistName: "Orig", ownerUid: "uid-cust" });
+    seedProduct({ id: "p1", name: "Keep Me", artistId: "art-1", ownerUid: "uid-cust" });
+    seedArtist({ id: "art-2", name: "Updated Artist" });
     const res = await request(buildApp())
       .patch("/products/p1")
       .set("x-test-user", CUSTOMER)
-      .send({ artistName: "Updated Artist" });
+      .send({ artistId: "art-2" });
     expect(res.status).toBe(200);
     expect(res.body.name).toBe("Keep Me");
-    expect(res.body.artistName).toBe("Updated Artist");
+    expect(res.body.artistId).toBe("art-2");
+    expect(res.body.artist.name).toBe("Updated Artist");
+  });
+
+  it("T-PROD-014b — admin override updates a product to a pending artist and emits admin_override", async () => {
+    seedProduct({ id: "p1", artistId: "art-1", ownerUid: "other" });
+    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const res = await request(buildApp())
+      .patch("/products/p1")
+      .set("x-test-user", ADMIN)
+      .send({ artistId: "art-pending" });
+    expect(res.status).toBe(200);
+    expect(res.body.artist).toMatchObject({ id: "art-pending", status: "pending" });
+    const fired = info.mock.calls.find((c) => {
+      const obj = c[0] as Record<string, unknown> | undefined;
+      return obj && (obj as { alert?: { kind?: string } }).alert?.kind === "admin_override";
+    });
+    expect(fired).toBeTruthy();
+    const payload = fired![0] as Record<string, unknown>;
+    expect(payload["productId"]).toBe("p1");
+    expect(payload["artistStatus"]).toBe("pending");
+    info.mockRestore();
   });
 
   it("T-PROD-009 — non-owner non-admin → 403 FORBIDDEN", async () => {
@@ -584,6 +709,27 @@ describe("T-PROD-008..009: PATCH /products/:id (CTR-006)", () => {
       .set("x-test-user", CUSTOMER)
       .send({ name: "x".repeat(121) });
     expect(res.status).toBe(400);
+  });
+
+  it("T-PROD-012b — update rejects a missing artist FK with ARTIST_NOT_FOUND", async () => {
+    seedProduct({ id: "p1", ownerUid: "uid-cust" });
+    const res = await request(buildApp())
+      .patch("/products/p1")
+      .set("x-test-user", CUSTOMER)
+      .send({ artistId: "missing-artist" });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("ARTIST_NOT_FOUND");
+  });
+
+  it("T-PROD-013b — customer update rejects a pending artist with ARTIST_NOT_PUBLISHED", async () => {
+    seedProduct({ id: "p1", ownerUid: "uid-cust" });
+    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+    const res = await request(buildApp())
+      .patch("/products/p1")
+      .set("x-test-user", CUSTOMER)
+      .send({ artistId: "art-pending" });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
   });
 });
 

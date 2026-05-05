@@ -30,5 +30,9 @@ export const Errors = {
     new AppError(400, "VALIDATION_ERROR", "Invalid request payload", details),
   conflict: (msg: string, details?: Record<string, unknown>) =>
     new AppError(409, "CONFLICT", msg, details),
+  artistNotFound: (artistId: string) =>
+    new AppError(422, "ARTIST_NOT_FOUND", "Artist not found", { artistId }),
+  artistNotPublished: (artistId: string) =>
+    new AppError(422, "ARTIST_NOT_PUBLISHED", "Artist is not published", { artistId }),
   internal: (msg = "Internal server error") => new AppError(500, "INTERNAL", msg),
 };

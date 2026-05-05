@@ -36,3 +36,14 @@ metrics:
       metricKind: DELTA
       valueType: INT64
       unit: "1"
+
+  - name: muga_admin_override_count
+    description: Count of admin product creates/updates attached to pending artists (audit-only)
+    filter: |
+      resource.type="cloud_run_revision"
+      AND resource.labels.service_name="muga-backend"
+      AND jsonPayload.alert.kind="admin_override"
+    metricDescriptor:
+      metricKind: DELTA
+      valueType: INT64
+      unit: "1"

@@ -42,7 +42,8 @@ export const openApiSpec = {
         required: [
           "id",
           "name",
-          "artistName",
+          "artistId",
+          "artist",
           "coverArtPath",
           "status",
           "ownerUid",
@@ -53,7 +54,17 @@ export const openApiSpec = {
         properties: {
           id: { type: "string" },
           name: { type: "string", maxLength: 120 },
-          artistName: { type: "string", maxLength: 120 },
+          artistId: { type: "string" },
+          artist: {
+            type: "object",
+            required: ["id", "name", "status"],
+            properties: {
+              id: { type: "string" },
+              name: { type: "string", maxLength: 120 },
+              imageUrl: { type: "string", format: "uri" },
+              status: { type: "string", enum: ["pending", "published", "rejected"] },
+            },
+          },
           coverArtPath: { type: "string" },
           coverArtUrl: { type: "string", format: "uri" },
           status: { type: "string", enum: ["pending", "published", "rejected"] },
@@ -190,10 +201,10 @@ export const openApiSpec = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["name", "artistName", "coverArtPath"],
+                required: ["name", "artistId", "coverArtPath"],
                 properties: {
                   name: { type: "string", maxLength: 120 },
-                  artistName: { type: "string", maxLength: 120 },
+                  artistId: { type: "string" },
                   coverArtPath: { type: "string" },
                 },
               },
@@ -218,12 +229,18 @@ export const openApiSpec = {
             description: "Admin-only filter; ignored for customers (always 'published')",
           },
         ],
-        responses: { "200": { description: "OK" } },
+        responses: { "200": { description: "OK (products include dereferenced artist object)" } },
       },
     },
     "/products/{id}": {
-      get: { summary: "Read product (CTR-005)", responses: { "200": { description: "OK" } } },
-      patch: { summary: "Update product (CTR-006)", responses: { "200": { description: "OK" } } },
+      get: {
+        summary: "Read product (CTR-005) — includes dereferenced artist",
+        responses: { "200": { description: "OK" } },
+      },
+      patch: {
+        summary: "Update product (CTR-006) — artistId FK validated when supplied",
+        responses: { "200": { description: "OK" } },
+      },
       delete: {
         summary: "Delete product (CTR-007)",
         responses: { "204": { description: "No content" } },
