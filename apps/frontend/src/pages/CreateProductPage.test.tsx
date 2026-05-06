@@ -18,6 +18,34 @@ vi.mock("../lib/uploads", () => ({
   uploadCoverArt: (...args: unknown[]) => uploadCoverArtMock(...args),
 }));
 
+const getCroppedImageFileMock = vi.hoisted(() =>
+  vi.fn(({ fileName }: { fileName: string }) =>
+    Promise.resolve(
+      new File(["cropped"], fileName.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" })
+    )
+  )
+);
+
+vi.mock("react-easy-crop", () => ({
+  default: ({
+    onCropComplete,
+  }: {
+    onCropComplete: (_area: unknown, areaPixels: unknown) => void;
+  }) => (
+    <button
+      data-testid="cropper"
+      onClick={() => onCropComplete({}, { x: 4, y: 8, width: 128, height: 128 })}
+      type="button"
+    >
+      cropper
+    </button>
+  ),
+}));
+
+vi.mock("../lib/imageCrop", () => ({
+  getCroppedImageFile: (args: { fileName: string }) => getCroppedImageFileMock(args),
+}));
+
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({
     user: { uid: "u1", email: "c@example.com", role: "customer" },
@@ -51,9 +79,34 @@ const chooseArtist = async (user: ReturnType<typeof userEvent.setup>, name = "Ca
   await user.click(await screen.findByText(name));
 };
 
+const enterNameAndNext = async (user: ReturnType<typeof userEvent.setup>, name = "Album") => {
+  await user.type(screen.getByLabelText(/product name/i), name);
+  await user.click(screen.getByRole("button", { name: /^next$/i }));
+};
+
+const chooseArtistAndNext = async (user: ReturnType<typeof userEvent.setup>, name = "Carol") => {
+  await chooseArtist(user, name);
+  await user.click(screen.getByRole("button", { name: /^next$/i }));
+};
+
+const uploadCoverAndNext = async (user: ReturnType<typeof userEvent.setup>, file = makeImage()) => {
+  await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, file);
+  expect(screen.getByRole("dialog", { name: /edit cover art/i })).toBeInTheDocument();
+  await user.click(screen.getByTestId("cropper"));
+  await user.click(screen.getByRole("button", { name: /^apply$/i }));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: /edit cover art/i })).toBeNull());
+  await user.click(screen.getByRole("button", { name: /^next$/i }));
+};
+
 beforeEach(() => {
   apiGetMock.mockReset();
   apiPostMock.mockReset();
+  getCroppedImageFileMock.mockClear();
+  getCroppedImageFileMock.mockImplementation(({ fileName }: { fileName: string }) =>
+    Promise.resolve(
+      new File(["cropped"], fileName.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" })
+    )
+  );
   uploadCoverArtMock.mockReset();
   apiGetMock.mockResolvedValue({
     items: [{ id: "art-1", name: "Carol", status: "published" }],
@@ -65,28 +118,90 @@ beforeEach(() => {
 });
 
 describe("U-PROD-001..006: CreateProductPage", () => {
-  it("U-PROD-001 — renders wizard steps, product details, artist combobox, cover, submit, and cancel", () => {
+  it("U-PROD-001 — renders a gated first wizard step with next and cancel", () => {
     renderPage();
     expect(screen.getByLabelText(/product name/i)).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /artist/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/cover art/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^submit$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /artist/i })).toBeNull();
+    expect(screen.queryByLabelText(/cover art/i)).toBeNull();
+    expect(screen.getByRole("button", { name: /^next$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
   });
 
-  it("U-PROD-002 — selecting a file renders a cover preview image", async () => {
+  it("U-PROD-001b — details step requires a product name before continuing", async () => {
+    const user = userEvent.setup();
     renderPage();
-    await userEvent.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
+    expect(screen.getByRole("alert")).toHaveTextContent(/product name/i);
+    expect(screen.queryByRole("combobox", { name: /artist/i })).toBeNull();
+  });
+
+  it("U-PROD-001c — back returns to the prior step and clears step validation errors", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await enterNameAndNext(user, "Backtrack Album");
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
+    expect(screen.getByRole("alert")).toHaveTextContent(/choose an artist/i);
+    await user.click(screen.getByRole("button", { name: /^back$/i }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByLabelText(/product name/i)).toHaveValue("Backtrack Album");
+  });
+
+  it("U-PROD-002 — selecting a file renders a cover preview image", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await enterNameAndNext(user);
+    await chooseArtistAndNext(user);
+    await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
+    expect(screen.getByRole("dialog", { name: /edit cover art/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^apply$/i }));
     expect(document.querySelector('img[src="blob:mock"]')).not.toBeNull();
+  });
+
+  it("U-PROD-002c — crop reset, cancel, and fallback keep the original cover usable", async () => {
+    getCroppedImageFileMock.mockRejectedValue(new Error("crop failed"));
+    const user = userEvent.setup();
+    renderPage();
+    await enterNameAndNext(user);
+    await chooseArtistAndNext(user);
+    const input = screen.getByLabelText(/cover art/i) as HTMLInputElement;
+
+    await user.upload(input, makeImage("cancelled.png", "image/png"));
+    expect(screen.getByRole("dialog", { name: /edit cover art/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: /edit cover art/i })).toBeNull()
+    );
+    expect(screen.getAllByText(/no cover selected/i).length).toBeGreaterThan(0);
+
+    await user.upload(input, makeImage("fallback.png", "image/png"));
+    const [zoomSlider, rotationSlider] = screen.getAllByRole("slider");
+    fireEvent.keyDown(zoomSlider!, { key: "ArrowRight" });
+    fireEvent.keyDown(rotationSlider!, { key: "ArrowRight" });
+    await user.click(screen.getByTestId("cropper"));
+    await user.click(screen.getByRole("button", { name: /^reset$/i }));
+    await user.click(screen.getByRole("button", { name: /^apply$/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: /edit cover art/i })).toBeNull()
+    );
+    expect(document.querySelector('img[src="blob:mock"]')).not.toBeNull();
+    expect(getCroppedImageFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        crop: { x: 4, y: 8, width: 128, height: 128 },
+        fileName: "fallback.png",
+        imageSrc: "blob:mock",
+        rotation: 0,
+      })
+    );
   });
 
   it("U-PROD-003 — submit without a cover surfaces the validation error", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/product name/i), "Album");
-    await chooseArtist(user);
+    await enterNameAndNext(user, "Album");
+    await chooseArtistAndNext(user);
     (screen.getByLabelText(/cover art/i) as HTMLInputElement).removeAttribute("required");
-    await user.click(screen.getByRole("button", { name: /^submit$/i }));
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
     expect(screen.getByRole("alert")).toHaveTextContent(/cover-art/i);
     expect(uploadCoverArtMock).not.toHaveBeenCalled();
     expect(apiPostMock).not.toHaveBeenCalled();
@@ -97,9 +212,9 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     apiPostMock.mockResolvedValue({ id: "p1" });
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/product name/i), "Aurora");
-    await chooseArtist(user);
-    await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
+    await enterNameAndNext(user, "Aurora");
+    await chooseArtistAndNext(user);
+    await uploadCoverAndNext(user);
     await user.click(screen.getByRole("button", { name: /^submit$/i }));
     await waitFor(() => expect(screen.getByTestId("list")).toBeInTheDocument());
     expect(uploadCoverArtMock).toHaveBeenCalledTimes(1);
@@ -119,9 +234,9 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     });
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/product name/i), "X");
-    await chooseArtist(user);
-    await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
+    await enterNameAndNext(user, "X");
+    await chooseArtistAndNext(user);
+    await uploadCoverAndNext(user);
     await user.click(screen.getByRole("button", { name: /^submit$/i }));
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(/submission failed.*VALIDATION_ERROR/i)
@@ -132,9 +247,9 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     uploadCoverArtMock.mockRejectedValue(new Error("network down"));
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/product name/i), "X");
-    await chooseArtist(user);
-    await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
+    await enterNameAndNext(user, "X");
+    await chooseArtistAndNext(user);
+    await uploadCoverAndNext(user);
     await user.click(screen.getByRole("button", { name: /^submit$/i }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/submission failed/i));
   });
@@ -154,9 +269,9 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     apiPostMock.mockResolvedValue({ id: "p1" });
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/product name/i), "X");
-    await chooseArtist(user);
-    await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
+    await enterNameAndNext(user, "X");
+    await chooseArtistAndNext(user);
+    await uploadCoverAndNext(user);
     await user.click(screen.getByRole("button", { name: /^submit$/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /submitting/i })).toBeDisabled());
     resolveUpload!("cover-art/u/x.jpg");
@@ -166,8 +281,11 @@ describe("U-PROD-001..006: CreateProductPage", () => {
   it("U-PROD-002b — clearing the file input wipes the preview", async () => {
     const user = userEvent.setup();
     renderPage();
+    await enterNameAndNext(user);
+    await chooseArtistAndNext(user);
     const input = screen.getByLabelText(/cover art/i) as HTMLInputElement;
     await user.upload(input, makeImage());
+    await user.click(screen.getByRole("button", { name: /^apply$/i }));
     expect(document.querySelector('img[src="blob:mock"]')).not.toBeNull();
     Object.defineProperty(input, "files", {
       configurable: true,
@@ -185,7 +303,7 @@ describe("U-PROD-001..006: CreateProductPage", () => {
       .mockResolvedValueOnce({ id: "p1" });
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/product name/i), "New Release");
+    await enterNameAndNext(user, "New Release");
     await user.click(screen.getByRole("combobox", { name: /artist/i }));
     await user.type(screen.getByRole("combobox", { name: /artist/i }), "New Artist");
     await user.click(await screen.findByRole("button", { name: /add "new artist"/i }));
@@ -196,7 +314,8 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     await user.click(screen.getByRole("button", { name: /^request$/i }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByText(/both this artist and the product are approved/i)).toBeInTheDocument();
-    await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
+    await uploadCoverAndNext(user);
     await user.click(screen.getByRole("button", { name: /^submit$/i }));
     await waitFor(() => expect(screen.getByTestId("list")).toBeInTheDocument());
     expect(apiPostMock).toHaveBeenNthCalledWith(1, "/artists", { name: "New Artist Changed" });
@@ -210,9 +329,8 @@ describe("U-PROD-001..006: CreateProductPage", () => {
   it("U-PROD-003c — submit without selected artist surfaces validation error", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/product name/i), "Album");
-    await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
-    await user.click(screen.getByRole("button", { name: /^submit$/i }));
+    await enterNameAndNext(user, "Album");
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
     expect(screen.getByRole("alert")).toHaveTextContent(/choose an artist/i);
     expect(uploadCoverArtMock).not.toHaveBeenCalled();
   });
@@ -227,6 +345,7 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     });
     const user = userEvent.setup();
     renderPage();
+    await enterNameAndNext(user, "Duplicate Release");
     await user.click(screen.getByRole("combobox", { name: /artist/i }));
     await user.type(screen.getByRole("combobox", { name: /artist/i }), "Duplicate");
     await user.click(await screen.findByRole("button", { name: /add "duplicate"/i }));
@@ -243,6 +362,7 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     apiPostMock.mockRejectedValueOnce(new Error("offline"));
     const user = userEvent.setup();
     renderPage();
+    await enterNameAndNext(user, "Offline Release");
     await user.click(screen.getByRole("combobox", { name: /artist/i }));
     await user.type(screen.getByRole("combobox", { name: /artist/i }), "Offline Artist");
     await user.click(await screen.findByRole("button", { name: /add "offline artist"/i }));
@@ -256,6 +376,7 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     apiGetMock.mockResolvedValue({ items: [] });
     const user = userEvent.setup();
     renderPage();
+    await enterNameAndNext(user, "Escape Release");
     await user.click(screen.getByRole("combobox", { name: /artist/i }));
     await user.type(screen.getByRole("combobox", { name: /artist/i }), "Escape Artist");
     await user.click(await screen.findByRole("button", { name: /add "escape artist"/i }));

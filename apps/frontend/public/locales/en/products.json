@@ -26,6 +26,7 @@
     "formDescription": "Work through the essentials and review the submission before sending it to the moderation queue.",
     "wizard": {
       "label": "Create product progress",
+      "progress": "Step {{current}} of {{total}}",
       "details": {
         "label": "Details",
         "description": "Name the release."
@@ -72,11 +73,22 @@
     },
     "previewAlt": "Cover art preview",
     "actions": {
+      "back": "Back",
       "cancel": "Cancel",
+      "next": "Next",
       "submit": "Submit",
       "submitting": "Submitting…"
     },
+    "crop": {
+      "title": "Edit cover art",
+      "description": "Crop the artwork to a square cover before uploading.",
+      "zoom": "Zoom",
+      "rotation": "Rotation",
+      "reset": "Reset",
+      "apply": "Apply"
+    },
     "errors": {
+      "nameRequired": "Please enter a product name.",
       "artistRequired": "Please choose an artist.",
       "coverRequired": "Please choose a cover-art image.",
       "submitFailed": "Product submission failed. Try again.",

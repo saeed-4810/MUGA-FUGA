@@ -38,9 +38,11 @@ interface FieldGroupProps {
 }
 
 export const FieldGroup = ({ children, description, title }: FieldGroupProps) => (
-  <div className="border-border bg-background/60 rounded-2xl border p-4 shadow-sm sm:p-5">
-    <div className="mb-4 space-y-1">
-      <h2 className="font-display text-foreground text-lg font-semibold tracking-tight">{title}</h2>
+  <div className="space-y-4">
+    <div className="space-y-1">
+      <h2 className="font-display text-foreground text-base font-semibold tracking-tight sm:text-lg">
+        {title}
+      </h2>
       {description ? (
         <p className="text-muted-foreground text-sm leading-6">{description}</p>
       ) : null}

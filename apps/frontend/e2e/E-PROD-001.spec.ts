@@ -70,6 +70,8 @@ test.describe("E-PROD-001 — Products list + create", () => {
     );
 
     await page.goto("/products/new");
+    await page.getByLabel(/product name/i).fill("Artist Request Draft");
+    await page.getByRole("button", { name: /^next$/i }).click();
     await page.getByRole("combobox", { name: /artist/i }).fill("E2E Artist");
     await expect(page.getByRole("button", { name: /add "e2e artist"/i })).toBeVisible();
     await page.getByRole("button", { name: /add "e2e artist"/i }).click();
@@ -93,7 +95,16 @@ test.describe("E-PROD-001 — Products list + create", () => {
     );
     await page.route("**/artists?status=published**", (route) =>
       route.fulfill({
-        json: { items: [{ id: "artist-1", name: "E2E Artist", status: "published" }] },
+        json: {
+          items: [
+            {
+              id: "artist-1",
+              imageUrl: "https://cdn.example/artist.jpg",
+              name: "E2E Artist",
+              status: "published",
+            },
+          ],
+        },
       })
     );
     await page.route("http://localhost:3001/products/signed-upload", (route) =>
@@ -124,7 +135,12 @@ test.describe("E-PROD-001 — Products list + create", () => {
             {
               id: "prod-1",
               name: "E2E Album",
-              artist: { id: "artist-1", name: "E2E Artist", status: "published" },
+              artist: {
+                id: "artist-1",
+                imageUrl: "https://cdn.example/artist.jpg",
+                name: "E2E Artist",
+                status: "published",
+              },
               coverArtPath: "cover-art/e2e/cover.jpg",
               coverArtUrl: "https://cdn.example/cover.jpg",
               status: "pending",
@@ -138,13 +154,18 @@ test.describe("E-PROD-001 — Products list + create", () => {
 
     await page.goto("/products/new");
     await page.getByLabel(/product name/i).fill("E2E Album");
+    await page.getByRole("button", { name: /^next$/i }).click();
     await page.getByRole("combobox", { name: /artist/i }).fill("E2E Artist");
     await page.getByRole("option", { name: /e2e artist/i }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    await page.getByRole("button", { name: /^next$/i }).click();
     await page.getByLabel(/cover art/i).setInputFiles({
       name: "cover.jpg",
       mimeType: "image/jpeg",
       buffer: Buffer.from("cover"),
     });
+    await page.getByRole("button", { name: /^next$/i }).click();
+    await expect(page.getByText("Submission summary")).toBeVisible();
     await page.getByRole("button", { name: /^submit$/i }).click();
     await expect(page).toHaveURL(/\/products$/);
     expect(productCreated).toBe(true);

@@ -7,6 +7,14 @@
       "body": "Nothing to review right now."
     },
     "loading": "Loading approval queue",
+    "tableTitle": "Pending submissions",
+    "filters": {
+      "status": "Status filter",
+      "description": "The admin queue shows customer submissions waiting for review."
+    },
+    "status": {
+      "pending": "Pending review ({{count}})"
+    },
     "columns": {
       "owner": "Owner",
       "created": "Created",
@@ -14,7 +22,23 @@
     },
     "actions": {
       "approve": "Approve",
-      "reject": "Reject"
+      "approving": "Approving…",
+      "details": "Details",
+      "reject": "Reject",
+      "rejecting": "Rejecting…"
+    },
+    "details": {
+      "title": "Review {{name}}",
+      "body": "Check the submission details before taking action.",
+      "close": "Close"
+    },
+    "reject": {
+      "title": "Reject {{name}}?",
+      "body": "This moves the product out of the customer-visible approval queue.",
+      "reason": "Reason",
+      "placeholder": "Optional reason for the customer or audit trail",
+      "cancel": "Cancel",
+      "confirm": "Reject product"
     }
   },
   "reject": {

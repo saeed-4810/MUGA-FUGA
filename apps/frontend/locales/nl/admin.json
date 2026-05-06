@@ -7,6 +7,14 @@
       "body": "Er is op dit moment niets te beoordelen."
     },
     "loading": "Goedkeuringswachtrij laden",
+    "tableTitle": "Inzendingen in behandeling",
+    "filters": {
+      "status": "Statusfilter",
+      "description": "De beheerderswachtrij toont klantinzendingen die op beoordeling wachten."
+    },
+    "status": {
+      "pending": "In behandeling ({{count}})"
+    },
     "columns": {
       "owner": "Eigenaar",
       "created": "Aangemaakt",
@@ -14,7 +22,23 @@
     },
     "actions": {
       "approve": "Goedkeuren",
-      "reject": "Afwijzen"
+      "approving": "Goedkeuren…",
+      "details": "Details",
+      "reject": "Afwijzen",
+      "rejecting": "Afwijzen…"
+    },
+    "details": {
+      "title": "Beoordeel {{name}}",
+      "body": "Controleer de inzending voordat je actie onderneemt.",
+      "close": "Sluiten"
+    },
+    "reject": {
+      "title": "{{name}} afwijzen?",
+      "body": "Dit haalt het product uit de goedkeuringswachtrij voor klanten.",
+      "reason": "Reden",
+      "placeholder": "Optionele reden voor klant of audittrail",
+      "cancel": "Annuleren",
+      "confirm": "Product afwijzen"
     }
   },
   "reject": {

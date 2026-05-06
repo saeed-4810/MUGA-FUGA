@@ -462,6 +462,24 @@ describe("T-ARTIST-001..006: POST /artists (CTR-101)", () => {
       .send({ name: "With Image", imageObjectPath: "artist-images/uid-cust/abc.jpg" });
     expect(res.status).toBe(201);
     expect(res.body.imageObjectPath).toBe("artist-images/uid-cust/abc.jpg");
+    expect(res.body.imageUrl).toBe(
+      "https://firebasestorage.googleapis.com/v0/b/muga-test.appspot.com/o/artist-images%2Fuid-cust%2Fabc.jpg?alt=media"
+    );
+  });
+
+  it("T-ARTIST-006d — stored imageUrl takes precedence over imageObjectPath", async () => {
+    const res = await request(buildApp()).post("/artists").set("x-test-user", CUSTOMER).send({
+      name: "With Existing Image URL",
+      imageObjectPath: "artist-images/uid-cust/ignored.jpg",
+    });
+    const id = res.body.id as string;
+    const rec = store.get(id)!;
+    store.set(id, { data: { ...rec.data, imageUrl: "https://cdn.example.com/artist.jpg" } });
+
+    const read = await request(buildApp()).get(`/artists/${id}`).set("x-test-user", CUSTOMER);
+
+    expect(read.status).toBe(200);
+    expect(read.body.imageUrl).toBe("https://cdn.example.com/artist.jpg");
   });
 });
 
@@ -471,13 +489,21 @@ describe("T-ARTIST-001..006: POST /artists (CTR-101)", () => {
 
 describe("T-ARTIST-007..014: GET /artists (CTR-102)", () => {
   it("T-ARTIST-007 — customer sees only published by default", async () => {
-    seedArtist({ id: "a1", status: "published", ownerUid: "other" });
+    seedArtist({
+      id: "a1",
+      imageObjectPath: "artist-images/other/a1.jpg",
+      status: "published",
+      ownerUid: "other",
+    });
     seedArtist({ id: "a2", status: "pending", ownerUid: "other" });
     seedArtist({ id: "a3", status: "rejected", ownerUid: "other" });
     const res = await request(buildApp()).get("/artists").set("x-test-user", CUSTOMER);
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(1);
     expect(res.body.items[0].id).toBe("a1");
+    expect(res.body.items[0].imageUrl).toBe(
+      "https://firebasestorage.googleapis.com/v0/b/muga-test.appspot.com/o/artist-images%2Fother%2Fa1.jpg?alt=media"
+    );
   });
 
   it("T-ARTIST-008 — admin without filter sees all", async () => {
@@ -589,10 +615,18 @@ describe("T-ARTIST-007..014: GET /artists (CTR-102)", () => {
 
 describe("T-ARTIST-015..018: GET /artists/:id (CTR-103)", () => {
   it("T-ARTIST-015 — published artist visible to any authenticated user", async () => {
-    seedArtist({ id: "a1", status: "published", ownerUid: "other" });
+    seedArtist({
+      id: "a1",
+      imageObjectPath: "artist-images/other/read.jpg",
+      status: "published",
+      ownerUid: "other",
+    });
     const res = await request(buildApp()).get("/artists/a1").set("x-test-user", CUSTOMER);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe("a1");
+    expect(res.body.imageUrl).toBe(
+      "https://firebasestorage.googleapis.com/v0/b/muga-test.appspot.com/o/artist-images%2Fother%2Fread.jpg?alt=media"
+    );
   });
 
   it("T-ARTIST-016 — owner can read own pending artist", async () => {

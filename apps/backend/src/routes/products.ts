@@ -12,6 +12,7 @@ import {
 } from "../domain/product.js";
 import { emitAlert } from "../lib/alerting.js";
 import { db, bucket } from "../lib/firebase.js";
+import { storageMediaUrl } from "../lib/mediaUrl.js";
 import { buildApproveHandler, buildRejectHandler } from "../lib/moderation.js";
 import { SignedUploadInput, mintSignedUpload } from "../lib/signedUpload.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
@@ -215,13 +216,6 @@ export const productsRouter = (env: Env): ExpressRouter => {
   return router;
 };
 
-const toProductArtist = (artist: Artist): ProductArtist => ({
-  id: artist.id,
-  name: artist.name,
-  status: artist.status,
-  ...(artist.imageUrl !== undefined ? { imageUrl: artist.imageUrl } : {}),
-});
-
 const loadArtist = async (env: Env, artistId: string): Promise<Artist> => {
   const snap = await db(env).collection(ARTISTS_COLLECTION).doc(artistId).get();
   if (!snap.exists) throw Errors.artistNotFound(artistId);
@@ -241,9 +235,21 @@ const validateArtistForWrite = async (
   throw Errors.artistNotPublished(artistId);
 };
 
+const toProductArtistResponse = (env: Env, artist: Artist): ProductArtist => ({
+  id: artist.id,
+  name: artist.name,
+  status: artist.status,
+  ...(artist.imageUrl !== undefined
+    ? { imageUrl: artist.imageUrl }
+    : artist.imageObjectPath !== undefined
+      ? { imageUrl: storageMediaUrl(env, artist.imageObjectPath) }
+      : {}),
+});
+
 const toProductResponse = async (env: Env, product: Product): Promise<ProductResponse> => ({
   ...product,
-  artist: toProductArtist(await loadArtist(env, product.artistId)),
+  coverArtUrl: product.coverArtUrl ?? storageMediaUrl(env, product.coverArtPath),
+  artist: toProductArtistResponse(env, await loadArtist(env, product.artistId)),
 });
 
 const emitAdminOverride = (

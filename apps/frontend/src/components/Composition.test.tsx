@@ -217,10 +217,10 @@ describe("shared composition patterns", () => {
 
     // PageSurface panel — fluid up to max-w-6xl, padding scales at sm
     expect(screen.getByText("field").closest("section")).toHaveClass("max-w-6xl");
-    // FieldGroup — padding scales at sm
+    // FieldGroup — minimal typography/spacing, no nested card boundary
     expect(
       screen.getByRole("heading", { name: "Details" }).closest("div")?.parentElement
-    ).toHaveClass("p-4", "sm:p-5");
+    ).toHaveClass("space-y-4");
     // WizardSteps — 1col mobile → 2col sm → 4col lg
     expect(screen.getByRole("list", { name: "steps" })).toHaveClass(
       "grid",

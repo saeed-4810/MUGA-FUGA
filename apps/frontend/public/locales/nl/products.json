@@ -26,6 +26,7 @@
     "formDescription": "Doorloop de belangrijkste gegevens en controleer de inzending voordat deze naar de moderatiewachtrij gaat.",
     "wizard": {
       "label": "Voortgang product aanmaken",
+      "progress": "Stap {{current}} van {{total}}",
       "details": {
         "label": "Details",
         "description": "Geef de release een naam."
@@ -72,11 +73,22 @@
     },
     "previewAlt": "Voorbeeld van de hoes",
     "actions": {
+      "back": "Terug",
       "cancel": "Annuleren",
+      "next": "Volgende",
       "submit": "Indienen",
       "submitting": "Bezig met indienen…"
     },
+    "crop": {
+      "title": "Hoesafbeelding bewerken",
+      "description": "Snijd de afbeelding vierkant bij voordat je uploadt.",
+      "zoom": "Zoom",
+      "rotation": "Rotatie",
+      "reset": "Resetten",
+      "apply": "Toepassen"
+    },
     "errors": {
+      "nameRequired": "Vul een productnaam in.",
       "artistRequired": "Kies een artiest.",
       "coverRequired": "Kies een afbeelding voor de hoes.",
       "submitFailed": "Product inzenden is mislukt. Probeer het opnieuw.",

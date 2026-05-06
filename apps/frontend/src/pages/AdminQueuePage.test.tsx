@@ -7,14 +7,14 @@
  *   - U-ADMIN-003: list table renders name + artist + owner + created date + action buttons
  *   - U-ADMIN-003: error alert with API code + message
  *   - U-ADMIN-004a: approve action POSTs /products/:id/approve and reloads
- *   - U-ADMIN-004b: reject action prompts for reason and POSTs /products/:id/reject with reason
- *   - U-ADMIN-004c: reject with no reason (cancel) still POSTs (with empty body)
+ *   - U-ADMIN-004b: reject dialog captures reason and POSTs /products/:id/reject
+ *   - U-ADMIN-004c: reject confirmation with no reason POSTs an empty body
  *   - role guard: customer accessing /admin/queue sees the forbidden card
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const apiGetMock = vi.fn();
 const apiPostMock = vi.fn();
@@ -63,19 +63,10 @@ const fixture = (overrides: Partial<{ id: string; name: string; artistName: stri
   status: "pending" as const,
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- spy retval shape varies
-let promptSpy: any;
-
 beforeEach(() => {
   apiGetMock.mockReset();
   apiPostMock.mockReset();
   useAuthMock.mockReset();
-  // window.prompt is jsdom-provided but we want to control its return value.
-  promptSpy = vi.spyOn(window, "prompt").mockReturnValue("looks fake");
-});
-
-afterEach(() => {
-  promptSpy.mockRestore();
 });
 
 describe("U-ADMIN-001..004: AdminQueuePage", () => {
@@ -104,9 +95,14 @@ describe("U-ADMIN-001..004: AdminQueuePage", () => {
     expect(screen.getByText("Pending Artist")).toBeInTheDocument();
     expect(screen.getByText("Other Album")).toBeInTheDocument();
     expect(screen.getAllByText("owner@example.com")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /pending review \(2\)/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
     // /api/products?status=pending was called (admins see only pending)
     expect(apiGetMock).toHaveBeenCalledWith("/products?status=pending");
     // Action buttons present per row
+    expect(screen.getAllByRole("button", { name: /details/i })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: /approve/i })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: /reject/i })).toHaveLength(2);
   });
@@ -124,6 +120,20 @@ describe("U-ADMIN-001..004: AdminQueuePage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(/INTERNAL.*boom/i);
   });
 
+  it("U-ADMIN-003c — details dialog shows submission metadata", async () => {
+    seedAuthAdmin();
+    apiGetMock.mockResolvedValue({ items: [fixture()] });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Pending Album")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /details/i }));
+    expect(screen.getByRole("dialog", { name: /review pending album/i })).toBeInTheDocument();
+    expect(screen.getAllByText("Pending Artist").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("owner@example.com").length).toBeGreaterThanOrEqual(1);
+    await user.click(screen.getByRole("button", { name: /^close$/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("U-ADMIN-004a — approve POSTs /products/:id/approve and triggers a reload", async () => {
     seedAuthAdmin();
     // First load returns one row, second load (after approve) returns empty
@@ -139,32 +149,80 @@ describe("U-ADMIN-001..004: AdminQueuePage", () => {
     expect(apiGetMock).toHaveBeenCalledTimes(2);
   });
 
-  it("U-ADMIN-004b — reject prompts for a reason and POSTs with that reason", async () => {
+  it("U-ADMIN-004b — reject dialog posts with a typed reason", async () => {
     seedAuthAdmin();
     apiGetMock.mockResolvedValueOnce({ items: [fixture()] }).mockResolvedValueOnce({ items: [] });
     apiPostMock.mockResolvedValueOnce({ id: "p1", status: "rejected" });
-    promptSpy.mockReturnValueOnce("Cover art breaches guidelines");
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(screen.getByText("Pending Album")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /reject/i }));
-    expect(promptSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog", { name: /reject pending album/i })).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/reason/i), "Cover art breaches guidelines");
+    await user.click(screen.getByRole("button", { name: /reject product/i }));
     expect(apiPostMock).toHaveBeenCalledWith("/products/p1/reject", {
       reason: "Cover art breaches guidelines",
     });
+    await waitFor(() => expect(screen.getByText(/inbox zero/i)).toBeInTheDocument());
   });
 
-  it("U-ADMIN-004c — reject with no reason (prompt cancelled) still POSTs an empty body", async () => {
+  it("U-ADMIN-004c — reject confirmation with no reason POSTs an empty body", async () => {
     seedAuthAdmin();
     apiGetMock.mockResolvedValueOnce({ items: [fixture()] }).mockResolvedValueOnce({ items: [] });
     apiPostMock.mockResolvedValueOnce({ id: "p1", status: "rejected" });
-    promptSpy.mockReturnValueOnce(null);
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(screen.getByText("Pending Album")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /reject/i }));
-    // The component falls back to `{}` when the user dismisses the prompt
+    await user.click(screen.getByRole("button", { name: /reject product/i }));
     expect(apiPostMock).toHaveBeenCalledWith("/products/p1/reject", {});
+  });
+
+  it("U-ADMIN-004d — reject dialog cancel closes without posting", async () => {
+    seedAuthAdmin();
+    apiGetMock.mockResolvedValueOnce({ items: [fixture()] });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Pending Album")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /reject/i }));
+    await user.click(screen.getByRole("button", { name: /cancel/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(apiPostMock).not.toHaveBeenCalled();
+  });
+
+  it("U-ADMIN-004e — action failures surface the API error without dropping the table", async () => {
+    seedAuthAdmin();
+    apiGetMock.mockResolvedValueOnce({ items: [fixture()] });
+    apiPostMock.mockRejectedValueOnce({
+      status: 409,
+      code: "CONFLICT",
+      message: "already reviewed",
+      requestId: "r-2",
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Pending Album")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /approve/i }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/CONFLICT/));
+    expect(screen.getByText("Pending Album")).toBeInTheDocument();
+  });
+
+  it("U-ADMIN-004f — reject failures keep the dialog context and show the API error", async () => {
+    seedAuthAdmin();
+    apiGetMock.mockResolvedValueOnce({ items: [fixture()] });
+    apiPostMock.mockRejectedValueOnce({
+      status: 422,
+      code: "INVALID_REJECT",
+      message: "cannot reject",
+      requestId: "r-3",
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Pending Album")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /reject/i }));
+    await user.click(screen.getByRole("button", { name: /reject product/i }));
+    await waitFor(() => expect(screen.getByText(/INVALID_REJECT/)).toBeInTheDocument());
+    expect(screen.getByRole("dialog", { name: /reject pending album/i })).toBeInTheDocument();
   });
 
   it("U-ADMIN-005 — customer hitting /admin/queue sees the role-mismatch forbidden card", () => {
@@ -176,13 +234,12 @@ describe("U-ADMIN-001..004: AdminQueuePage", () => {
     });
     apiGetMock.mockReturnValue(new Promise(() => undefined));
     renderPage();
-    // RequireAuth role="admin" surfaces the forbidden card; the queue table
-    // never renders. The page component itself still mounts (React computes
-    // the children before deciding what to render), so the fetch fires —
-    // but the user only sees the alert, not the inbox-zero card.
+    // RequireAuth role="admin" surfaces the forbidden card before the queue
+    // content mounts, so protected data is never fetched for a non-admin.
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.queryByText(/inbox zero/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /approve/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /reject/i })).toBeNull();
+    expect(apiGetMock).not.toHaveBeenCalled();
   });
 });

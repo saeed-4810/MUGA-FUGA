@@ -432,6 +432,9 @@ describe("T-PROD-001..003: POST /products (CTR-003)", () => {
       name: "Seed Artist",
       status: "published",
     });
+    expect(res.body.coverArtUrl).toBe(
+      "https://firebasestorage.googleapis.com/v0/b/muga-test.appspot.com/o/cover-art%2Fuid-cust%2F123-abc?alt=media"
+    );
     expect(res.body.approvedAt).toBeUndefined();
     // Response body is a valid Product per the domain schema.
     expect(() => ProductSchema.parse(res.body)).not.toThrow();
@@ -547,17 +550,43 @@ describe("T-PROD-004..006: GET /products (CTR-004)", () => {
     expect(res.body.items).toHaveLength(3);
   });
 
-  it("T-PROD-015 — list dereferences the current artist display object", async () => {
-    seedArtist({ id: "art-2", name: "Renamed Artist", imageUrl: "https://cdn.example.com/a.jpg" });
+  it("T-PROD-015 — list dereferences the current artist display object and media URLs", async () => {
+    seedArtist({ id: "art-2", name: "Renamed Artist", imageObjectPath: "artist-images/a.jpg" });
     seedProduct({ id: "p1", status: "published", artistId: "art-2" });
     const res = await request(buildApp()).get("/products").set("x-test-user", CUSTOMER);
     expect(res.status).toBe(200);
     expect(res.body.items[0].artist).toEqual({
       id: "art-2",
       name: "Renamed Artist",
-      imageUrl: "https://cdn.example.com/a.jpg",
+      imageUrl:
+        "https://firebasestorage.googleapis.com/v0/b/muga-test.appspot.com/o/artist-images%2Fa.jpg?alt=media",
       status: "published",
     });
+    expect(res.body.items[0].coverArtUrl).toBe(
+      "https://firebasestorage.googleapis.com/v0/b/muga-test.appspot.com/o/cover-art%2Fp1%2Fseed.jpg?alt=media"
+    );
+  });
+
+  it("T-PROD-015b — stored product and artist image URLs take precedence", async () => {
+    seedArtist({
+      id: "art-2",
+      imageObjectPath: "artist-images/ignored.jpg",
+      imageUrl: "https://cdn.example.com/artist.jpg",
+      name: "CDN Artist",
+    });
+    seedProduct({
+      coverArtPath: "cover-art/p1/ignored.jpg",
+      coverArtUrl: "https://cdn.example.com/cover.jpg",
+      id: "p1",
+      status: "published",
+      artistId: "art-2",
+    });
+
+    const res = await request(buildApp()).get("/products").set("x-test-user", CUSTOMER);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items[0].coverArtUrl).toBe("https://cdn.example.com/cover.jpg");
+    expect(res.body.items[0].artist.imageUrl).toBe("https://cdn.example.com/artist.jpg");
   });
 
   it("T-PROD-005b — admin filters by status=pending", async () => {

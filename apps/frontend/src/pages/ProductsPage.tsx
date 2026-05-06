@@ -95,7 +95,7 @@ const ProductCard = ({ product, t }: ProductCardProps) => {
   );
 };
 
-export const ProductsPage = () => {
+const ProductsContent = () => {
   const { t } = useTranslation("products");
   const [products, setProducts] = useState<Product[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
@@ -108,7 +108,7 @@ export const ProductsPage = () => {
   }, []);
 
   return (
-    <RequireAuth>
+    <>
       <PageHeader
         title={t("list.title")}
         description={t("list.subtitle")}
@@ -142,6 +142,12 @@ export const ProductsPage = () => {
           ))}
         </ul>
       )}
-    </RequireAuth>
+    </>
   );
 };
+
+export const ProductsPage = () => (
+  <RequireAuth>
+    <ProductsContent />
+  </RequireAuth>
+);

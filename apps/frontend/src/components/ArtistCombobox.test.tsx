@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const apiGetMock = vi.fn();
@@ -42,9 +43,24 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     expect(await screen.findByText("Aurora")).toBeInTheDocument();
     expect(screen.getByText("Borealis")).toBeInTheDocument();
     expect(document.querySelector('img[src="https://cdn.example/a.jpg"]')).not.toBeNull();
-    expect(screen.getByText("♪")).toBeInTheDocument();
+    expect(screen.getByText("B")).toBeInTheDocument();
     await user.click(screen.getByText("Aurora"));
     expect(onChange).toHaveBeenCalledWith(artists[0]);
+  });
+
+  it("U-ARTIST-COMBO-001b — selected artist treatment shows avatar image and status", () => {
+    renderBox({ value: artists[0]! });
+    expect(document.querySelector('img[src="https://cdn.example/a.jpg"]')).not.toBeNull();
+    expect(screen.getByText("Published")).toBeInTheDocument();
+  });
+
+  it("U-ARTIST-COMBO-001c — empty artist names fall back to the music note avatar", async () => {
+    apiGetMock.mockResolvedValue({ items: [{ id: "blank", name: "   ", status: "published" }] });
+    const user = userEvent.setup();
+    renderBox({ value: { id: "blank", name: "   ", status: "published" } });
+    expect(screen.getByText("♪")).toBeInTheDocument();
+    await user.click(screen.getByRole("combobox", { name: /artist/i }));
+    await waitFor(() => expect(screen.getAllByText("♪")).toHaveLength(2));
   });
 
   it("U-ARTIST-COMBO-002 — debounces search queries and shows add-new footer for no exact match", async () => {
@@ -52,24 +68,37 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     const user = userEvent.setup();
     const { onRequestNew } = renderBox();
     await user.type(screen.getByRole("combobox", { name: /artist/i }), "New Artist");
-    await user.click(await screen.findByRole("button", { name: /add "new artist"/i }));
     await waitFor(() =>
       expect(apiGetMock).toHaveBeenLastCalledWith("/artists?status=published&q=New%20Artist")
     );
+    await user.click(await screen.findByRole("button", { name: /add "new artist"/i }));
     expect(onRequestNew).toHaveBeenCalledWith("New Artist");
   });
 
   it("U-ARTIST-COMBO-003 — clears selection while typing and hides add-new when there is an exact match", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    renderBox({ value: artists[0]!, onChange });
+    const Controlled = () => {
+      const [value, setValue] = useState<ArtistOption | null>(artists[0]!);
+      return (
+        <ArtistCombobox
+          value={value}
+          onChange={(next) => {
+            onChange(next);
+            setValue(next);
+          }}
+          onRequestNew={vi.fn()}
+        />
+      );
+    };
+    render(<Controlled />);
     const input = screen.getByRole("combobox", { name: /artist/i });
     expect(input).toHaveValue("Aurora");
     await user.clear(input);
     await user.type(input, "Aurora");
     await screen.findByText("Aurora");
     expect(onChange).toHaveBeenCalledWith(null);
-    expect(screen.queryByRole("button", { name: /add/i })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("button", { name: /add/i })).toBeNull());
   });
 
   it("U-ARTIST-COMBO-004 — supports keyboard navigation and Enter selection", async () => {
@@ -80,6 +109,14 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     await screen.findByText("Aurora");
     await user.keyboard("{ArrowDown}{Enter}");
     expect(onChange).toHaveBeenCalledWith(artists[1]);
+  });
+
+  it("U-ARTIST-COMBO-004b — marks the selected listbox option as selected", async () => {
+    const user = userEvent.setup();
+    renderBox({ value: artists[0]! });
+    await user.click(screen.getByRole("combobox", { name: /artist/i }));
+    const option = await screen.findByRole("option", { name: /aurora/i });
+    expect(option).toHaveAttribute("aria-selected", "true");
   });
 
   it("U-ARTIST-COMBO-005 — supports ArrowUp wrapping from the first option", async () => {

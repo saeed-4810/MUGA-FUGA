@@ -57,6 +57,27 @@ beforeAll(() => {
     }),
   });
 
+  if (!("ResizeObserver" in globalThis)) {
+    class ResizeObserverPolyfill {
+      observe(): void {
+        // noop: Radix Slider only needs the API to exist in jsdom tests.
+      }
+
+      unobserve(): void {
+        // noop
+      }
+
+      disconnect(): void {
+        // noop
+      }
+    }
+
+    Object.defineProperty(globalThis, "ResizeObserver", {
+      value: ResizeObserverPolyfill,
+      writable: true,
+    });
+  }
+
   // jsdom in vitest sometimes ships without a Storage implementation;
   // ensure both window.localStorage and window.sessionStorage are present.
   if (!("localStorage" in globalThis) || typeof globalThis.localStorage?.clear !== "function") {

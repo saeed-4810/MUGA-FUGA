@@ -1,6 +1,9 @@
 import { getIdToken } from "./firebase";
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+export const resolveApiBaseUrl = (value: string | undefined): string =>
+  value ?? "http://localhost:3001";
+
+const BASE = resolveApiBaseUrl(import.meta.env.VITE_API_URL);
 
 export type ApiError = {
   status: number;

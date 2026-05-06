@@ -22,7 +22,7 @@ vi.mock("./firebase", () => ({
   getIdToken: () => tokenMock(),
 }));
 
-import { api } from "./api";
+import { api, resolveApiBaseUrl } from "./api";
 
 const fetchMock = vi.fn();
 beforeEach(() => {
@@ -50,6 +50,11 @@ const errJson = (data: unknown, status = 400): Response =>
   });
 
 describe("U-API-001..010: api client", () => {
+  it("U-API-000 — resolves configured and local fallback base URLs", () => {
+    expect(resolveApiBaseUrl("https://api.example.test")).toBe("https://api.example.test");
+    expect(resolveApiBaseUrl(undefined)).toBe("http://localhost:3001");
+  });
+
   it("U-API-001 — GET attaches Bearer token from getIdToken", async () => {
     fetchMock.mockResolvedValue(okJson({ ok: true }));
     const res = await api.get<{ ok: boolean }>("/things");

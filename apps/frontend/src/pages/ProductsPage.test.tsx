@@ -22,14 +22,18 @@ vi.mock("../lib/api", () => ({
   },
 }));
 
+const useAuthMock = vi.fn();
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({
+  useAuth: () => useAuthMock(),
+}));
+
+const seedAuth = (loading = false) =>
+  useAuthMock.mockReturnValue({
     user: { uid: "u1", email: "c@example.com", role: "customer" },
-    loading: false,
+    loading,
     signIn: vi.fn(),
     signOut: vi.fn(),
-  }),
-}));
+  });
 
 import { ProductsPage } from "./ProductsPage";
 
@@ -46,6 +50,8 @@ const renderPage = () =>
 
 beforeEach(() => {
   apiGetMock.mockReset();
+  useAuthMock.mockReset();
+  seedAuth();
 });
 
 describe("U-PROD-001..006: ProductsPage", () => {
@@ -54,6 +60,13 @@ describe("U-PROD-001..006: ProductsPage", () => {
     const { container } = renderPage();
     const skeletons = container.querySelectorAll('[aria-busy="true"]');
     expect(skeletons.length).toBe(6);
+  });
+
+  it("U-PROD-001b — auth loading blocks product fetch on refresh", () => {
+    seedAuth(true);
+    renderPage();
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    expect(apiGetMock).not.toHaveBeenCalled();
   });
 
   it("U-PROD-002 — empty state shows the empty card + 'Create product' CTA", async () => {

@@ -13,6 +13,7 @@ import {
 import { Errors } from "../domain/errors.js";
 import { emitAlert } from "../lib/alerting.js";
 import { db, bucket } from "../lib/firebase.js";
+import { storageMediaUrl } from "../lib/mediaUrl.js";
 import { buildApproveHandler, buildRejectHandler } from "../lib/moderation.js";
 import { SignedUploadInput, mintSignedUpload } from "../lib/signedUpload.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
@@ -42,6 +43,15 @@ const IMAGE_PREFIX = "artist-images";
 
 /** Maximum number of blocking product ids returned in a delete-409 response. */
 const DELETE_BLOCK_PEEK = 5;
+
+const toArtistResponse = (env: Env, artist: Artist): Artist => ({
+  ...artist,
+  ...(artist.imageUrl !== undefined
+    ? { imageUrl: artist.imageUrl }
+    : artist.imageObjectPath !== undefined
+      ? { imageUrl: storageMediaUrl(env, artist.imageObjectPath) }
+      : {}),
+});
 
 /** Parse a comma-separated `?status=` query into an array of statuses. */
 const parseStatusFilter = (raw: unknown): ArtistStatus[] | null => {
@@ -112,7 +122,7 @@ export const artistsRouter = (env: Env): ExpressRouter => {
         return artist;
       });
 
-      res.status(201).json(ArtistSchema.parse(created));
+      res.status(201).json(toArtistResponse(env, ArtistSchema.parse(created)));
     } catch (err) {
       next(err);
     }
@@ -154,7 +164,7 @@ export const artistsRouter = (env: Env): ExpressRouter => {
       }
 
       const snap = await q.get();
-      const items = snap.docs.map((d) => ArtistSchema.parse(d.data()));
+      const items = snap.docs.map((d) => toArtistResponse(env, ArtistSchema.parse(d.data())));
       res.json({ items });
     } catch (err) {
       next(err);
@@ -175,7 +185,7 @@ export const artistsRouter = (env: Env): ExpressRouter => {
       if (!isAdmin && !isOwner && artist.status !== "published") {
         throw Errors.notFound("artist");
       }
-      res.json(artist);
+      res.json(toArtistResponse(env, artist));
     } catch (err) {
       next(err);
     }
@@ -231,7 +241,7 @@ export const artistsRouter = (env: Env): ExpressRouter => {
         await ref.set(merged);
       }
 
-      res.json(ArtistSchema.parse(merged));
+      res.json(toArtistResponse(env, ArtistSchema.parse(merged)));
     } catch (err) {
       next(err);
     }

@@ -24,6 +24,7 @@ interface ArtistComboboxProps {
 }
 
 const normalise = (value: string) => value.trim().toLowerCase();
+const getInitial = (name: string) => name.trim().charAt(0).toUpperCase() || "♪";
 
 export const ArtistCombobox = ({
   value,
@@ -74,7 +75,7 @@ export const ArtistCombobox = ({
     () => items.some((artist) => normalise(artist.name) === normalise(query)),
     [items, query]
   );
-  const canRequest = query.trim().length > 0 && !exactMatch;
+  const canRequest = !loading && query.trim().length > 0 && !exactMatch;
 
   const selectArtist = (artist: ArtistOption) => {
     onChange(artist);
@@ -95,98 +96,118 @@ export const ArtistCombobox = ({
   };
 
   return (
-    <div className="relative">
+    <div>
       <Label htmlFor={inputId}>{t("combobox.label")}</Label>
-      <Input
-        id={inputId}
-        role="combobox"
-        aria-busy={loading}
-        aria-expanded={open}
-        aria-controls={listboxId}
-        aria-autocomplete="list"
-        aria-activedescendant={
-          open && items[activeIndex] ? `${listboxId}-${items[activeIndex].id}` : undefined
-        }
-        className="mt-2"
-        value={query}
-        disabled={disabled}
-        placeholder={t("combobox.placeholder")}
-        autoComplete="off"
-        onFocus={() => setOpen(true)}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          onChange(null);
-          setOpen(true);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown") {
-            event.preventDefault();
-            move(1);
-          } else if (event.key === "ArrowUp") {
-            event.preventDefault();
-            move(-1);
-          } else if (event.key === "Enter" && open && items[activeIndex]) {
-            event.preventDefault();
-            selectArtist(items[activeIndex]);
-          } else if (event.key === "Escape") {
-            setOpen(false);
-          }
-        }}
-      />
-      {open && (
-        <div
-          className="border-border bg-popover text-popover-foreground shadow-glow absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-xl border p-2"
-          role="listbox"
+      <div className="relative mt-2">
+        <Input
+          id={inputId}
+          role="combobox"
           aria-busy={loading}
-          id={listboxId}
-        >
-          {loading && (
-            <div className="text-muted-foreground px-3 py-2 text-sm">{t("combobox.loading")}</div>
-          )}
-          {error && !loading && (
-            <div role="alert" className="text-destructive px-3 py-2 text-sm dark:text-red-200">
-              {t("combobox.error", { code: error.code })}
-            </div>
-          )}
-          {!loading && !error && items.length === 0 && (
-            <div className="text-muted-foreground px-3 py-2 text-sm">{t("combobox.empty")}</div>
-          )}
-          {!loading &&
-            !error &&
-            items.map((artist, index) => (
-              <button
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            open && items[activeIndex] ? `${listboxId}-${items[activeIndex].id}` : undefined
+          }
+          value={query}
+          disabled={disabled}
+          placeholder={t("combobox.placeholder")}
+          autoComplete="off"
+          onFocus={() => setOpen(true)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            onChange(null);
+            setOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              move(1);
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              move(-1);
+            } else if (event.key === "Enter" && open && items[activeIndex]) {
+              event.preventDefault();
+              selectArtist(items[activeIndex]);
+            } else if (event.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+        />
+        {open && (
+          <div
+            className="border-border bg-popover text-popover-foreground shadow-glow absolute left-0 right-0 top-full z-50 mt-3 max-h-72 overflow-auto rounded-xl border p-2"
+            role="listbox"
+            aria-busy={loading}
+            id={listboxId}
+          >
+            {loading && (
+              <div className="text-muted-foreground px-3 py-2 text-sm">{t("combobox.loading")}</div>
+            )}
+            {error && !loading && (
+              <div role="alert" className="text-destructive px-3 py-2 text-sm dark:text-red-200">
+                {t("combobox.error", { code: error.code })}
+              </div>
+            )}
+            {!loading && !error && items.length === 0 && (
+              <div className="text-muted-foreground px-3 py-2 text-sm">{t("combobox.empty")}</div>
+            )}
+            {!loading &&
+              !error &&
+              items.map((artist, index) => (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={value?.id === artist.id}
+                  id={`${listboxId}-${artist.id}`}
+                  key={artist.id}
+                  className={cn(
+                    "hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm outline-none focus-visible:ring-2",
+                    index === activeIndex && "bg-accent text-accent-foreground"
+                  )}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => selectArtist(artist)}
+                >
+                  {artist.imageUrl ? (
+                    <img
+                      src={artist.imageUrl}
+                      alt=""
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="bg-muted text-muted-foreground grid h-8 w-8 place-items-center rounded-full">
+                      {getInitial(artist.name)}
+                    </span>
+                  )}
+                  <span>{artist.name}</span>
+                </button>
+              ))}
+            {canRequest && (
+              <Button
                 type="button"
-                role="option"
-                aria-selected={value?.id === artist.id}
-                id={`${listboxId}-${artist.id}`}
-                key={artist.id}
-                className={cn(
-                  "hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm outline-none focus-visible:ring-2",
-                  index === activeIndex && "bg-accent text-accent-foreground"
-                )}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => selectArtist(artist)}
+                className="mt-2 h-9 w-full justify-start"
+                variant="ghost"
+                onClick={requestNew}
               >
-                {artist.imageUrl ? (
-                  <img src={artist.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
-                ) : (
-                  <span className="bg-muted text-muted-foreground grid h-8 w-8 place-items-center rounded-full">
-                    ♪
-                  </span>
-                )}
-                <span>{artist.name}</span>
-              </button>
-            ))}
-          {canRequest && (
-            <Button
-              type="button"
-              className="mt-2 h-9 w-full justify-start"
-              variant="ghost"
-              onClick={requestNew}
-            >
-              {t("combobox.addNew", { name: query.trim() })}
-            </Button>
+                {t("combobox.addNew", { name: query.trim() })}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+      {value && (
+        <div className="border-border bg-muted/40 mt-3 flex items-center gap-3 rounded-xl border p-3 text-sm">
+          {value.imageUrl ? (
+            <img src={value.imageUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
+          ) : (
+            <span className="bg-muted text-muted-foreground grid h-9 w-9 place-items-center rounded-full text-xs font-semibold">
+              {getInitial(value.name)}
+            </span>
           )}
+          <div>
+            <div className="font-medium">{value.name}</div>
+            <div className="text-muted-foreground text-xs">{t(`status.${value.status}`)}</div>
+          </div>
         </div>
       )}
     </div>
