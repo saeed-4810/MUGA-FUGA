@@ -51,7 +51,8 @@ describe("U-AUTH-001: LoginPage", () => {
       signOut: vi.fn(),
     });
     renderAt("/login");
-    expect(screen.getByText("MUGA", { selector: "div" })).toBeInTheDocument();
+    expect(screen.getAllByText("MUGA", { selector: "div" })).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: /sign in to muga/i })).toBeInTheDocument();
     expect(screen.getByTestId("locale-switcher")).toBeInTheDocument();
     expect(screen.getByTestId("theme-toggle")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign in with google/i })).toBeInTheDocument();
@@ -69,6 +70,35 @@ describe("U-AUTH-001: LoginPage", () => {
     renderAt("/login");
     await user.click(screen.getByRole("button", { name: /sign in with google/i }));
     expect(signIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("U-AUTH-001b2 — sign-in failure surfaces retryable error alert", async () => {
+    const signIn = vi.fn().mockRejectedValue(new Error("popup closed"));
+    useAuthMock.mockReturnValue({
+      user: null,
+      loading: false,
+      signIn,
+      signOut: vi.fn(),
+    });
+    const user = userEvent.setup();
+    renderAt("/login");
+    await user.click(screen.getByRole("button", { name: /sign in with google/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/sign-in failed.*try again/i);
+    await user.click(screen.getByRole("button", { name: /sign in with google/i }));
+    expect(signIn).toHaveBeenCalledTimes(2);
+  });
+
+  it("U-AUTH-001b3 — non-error sign-in rejection uses safe fallback copy", async () => {
+    useAuthMock.mockReturnValue({
+      user: null,
+      loading: false,
+      signIn: vi.fn().mockRejectedValue("cancelled"),
+      signOut: vi.fn(),
+    });
+    const user = userEvent.setup();
+    renderAt("/login");
+    await user.click(screen.getByRole("button", { name: /sign in with google/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/sign-in failed.*try again/i);
   });
 
   it("U-AUTH-001c — authenticated user lands on /login → redirected to /", async () => {

@@ -18,6 +18,10 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("E-AUTH-001 — Google sign-in flow", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => window.sessionStorage.removeItem("muga:e2e-user"));
+  });
+
   test("E-AUTH-001a — /login renders sign-in CTA + brand + chrome", async ({ page }) => {
     await page.goto("/login");
     // Brand mark visible (filter to the visible one — sidebar copy is hidden on mobile)
@@ -41,7 +45,7 @@ test.describe("E-AUTH-001 — Google sign-in flow", () => {
 
   test("E-AUTH-001b — unauthenticated visit to /products redirects to /login", async ({ page }) => {
     await page.goto("/products");
-    await page.waitForURL(/\/login$/);
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
     await expect(page).toHaveURL(/\/login$/);
     await expect(
       page.getByRole("main").getByRole("button", { name: /sign in with google/i })
@@ -52,7 +56,7 @@ test.describe("E-AUTH-001 — Google sign-in flow", () => {
     page,
   }) => {
     await page.goto("/admin/queue");
-    await page.waitForURL(/\/login$/);
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
     await expect(page).toHaveURL(/\/login$/);
   });
 

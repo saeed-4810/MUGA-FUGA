@@ -96,6 +96,7 @@ export const ArtistCombobox = ({
       <input
         id={inputId}
         role="combobox"
+        aria-busy={loading}
         aria-expanded={open}
         aria-controls={listboxId}
         aria-autocomplete="list"
@@ -132,6 +133,7 @@ export const ArtistCombobox = ({
         <div
           className="border-line bg-surface shadow-glow absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-xl border p-2"
           role="listbox"
+          aria-busy={loading}
           id={listboxId}
         >
           {loading && (

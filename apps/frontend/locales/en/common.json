@@ -20,6 +20,9 @@
   "locale": {
     "label": "Language"
   },
+  "dialog": {
+    "close": "Close dialog"
+  },
   "dashboard": {
     "welcomeBack": "Welcome back, {{name}}",
     "welcomeAnonymous": "Welcome to MUGA",

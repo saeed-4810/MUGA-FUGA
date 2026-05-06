@@ -10,6 +10,10 @@
   "request": {
     "title": "Nieuwe artiest aanvragen",
     "body": "Een beheerder beoordeelt je aanvraag voordat de artiest openbaar wordt.",
+    "errors": {
+      "failed": "Artiestaanvraag is mislukt. Probeer het opnieuw.",
+      "failedWithCode": "Artiestaanvraag is mislukt ({{code}}). Probeer het opnieuw."
+    },
     "actions": {
       "submit": "Aanvragen"
     }

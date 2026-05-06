@@ -10,6 +10,10 @@
   "request": {
     "title": "Request a new artist",
     "body": "An admin will review your request before the artist becomes public.",
+    "errors": {
+      "failed": "Artist request failed. Try again.",
+      "failedWithCode": "Artist request failed ({{code}}). Try again."
+    },
     "actions": {
       "submit": "Request"
     }

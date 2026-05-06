@@ -20,9 +20,13 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("E-ADMIN-001 — admin approval queue", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => window.sessionStorage.removeItem("muga:e2e-user"));
+  });
+
   test("E-ADMIN-001a — /admin/queue without auth redirects to /login", async ({ page }) => {
     await page.goto("/admin/queue");
-    await page.waitForURL(/\/login$/);
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
     await expect(page).toHaveURL(/\/login$/);
     // Scope to <main> — the header <UserMenu /> renders the same "Sign in
     // with Google" label when unauthenticated, which would otherwise trip
@@ -34,7 +38,7 @@ test.describe("E-ADMIN-001 — admin approval queue", () => {
 
   test("E-ADMIN-001b — login chrome stays usable after a deep-link redirect", async ({ page }) => {
     await page.goto("/admin/queue");
-    await page.waitForURL(/\/login$/);
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
     // Theme toggle + locale switcher must remain reachable in the header
     // (banner) after the redirect. The LoginPage also renders an in-page
     // copy of both, so we scope to the banner to keep the locator

@@ -19,6 +19,48 @@
   "create": {
     "title": "Create product",
     "subtitle": "Submit a new music product. Customer submissions await admin approval.",
+    "formTitle": "Product submission wizard",
+    "formDescription": "Work through the essentials and review the submission before sending it to the moderation queue.",
+    "wizard": {
+      "label": "Create product progress",
+      "details": {
+        "label": "Details",
+        "description": "Name the release."
+      },
+      "artist": {
+        "label": "Artist",
+        "description": "Select or request an artist."
+      },
+      "cover": {
+        "label": "Cover art",
+        "description": "Upload artwork for the catalog card."
+      },
+      "review": {
+        "label": "Review",
+        "description": "Check the summary before submit."
+      }
+    },
+    "groups": {
+      "details": {
+        "title": "Release details",
+        "description": "Use the public-facing product title reviewers and customers will see."
+      },
+      "artist": {
+        "title": "Artist",
+        "description": "Choose a published artist or request a new one for admin review."
+      },
+      "cover": {
+        "title": "Cover art",
+        "description": "Upload a square image for lists, cards, and dashboard previews."
+      }
+    },
+    "review": {
+      "title": "Submission summary",
+      "description": "Customer-created products stay pending until an admin approves them.",
+      "emptyName": "No product name yet",
+      "emptyArtist": "No artist selected",
+      "emptyCover": "No cover selected"
+    },
     "fields": {
       "name": "Product name",
       "artist": "Artist",
@@ -33,7 +75,9 @@
     },
     "errors": {
       "artistRequired": "Please choose an artist.",
-      "coverRequired": "Please choose a cover-art image."
+      "coverRequired": "Please choose a cover-art image.",
+      "submitFailed": "Product submission failed. Try again.",
+      "submitFailedWithCode": "Product submission failed ({{code}}). Try again."
     }
   },
   "status": {

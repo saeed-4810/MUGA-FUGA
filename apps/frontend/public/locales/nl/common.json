@@ -20,6 +20,9 @@
   "locale": {
     "label": "Taal"
   },
+  "dialog": {
+    "close": "Dialoog sluiten"
+  },
   "dashboard": {
     "welcomeBack": "Welkom terug, {{name}}",
     "welcomeAnonymous": "Welkom bij MUGA",

@@ -123,7 +123,9 @@ describe("U-PROD-create: CreateProductPage", () => {
     await chooseArtist(user);
     await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
     await user.click(screen.getByRole("button", { name: /^submit$/i }));
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/VALIDATION_ERROR/));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/submission failed.*VALIDATION_ERROR/i)
+    );
   });
 
   it("U-PROD-create-006 — upload failure (plain Error) shows the message", async () => {
@@ -134,7 +136,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     await chooseArtist(user);
     await user.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
     await user.click(screen.getByRole("button", { name: /^submit$/i }));
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/network down/));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/submission failed/i));
   });
 
   it("U-PROD-create-007 — cancel returns to /products without submitting", async () => {
@@ -230,7 +232,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     await user.click(await screen.findByRole("button", { name: /add "duplicate"/i }));
     await user.click(screen.getByRole("button", { name: /^request$/i }));
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/CONFLICT.*artist exists/i)
+      expect(screen.getByRole("alert")).toHaveTextContent(/artist request failed.*CONFLICT/i)
     );
     await user.click(screen.getByRole("dialog").querySelector("button")!);
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -245,7 +247,9 @@ describe("U-PROD-create: CreateProductPage", () => {
     await user.type(screen.getByRole("combobox", { name: /artist/i }), "Offline Artist");
     await user.click(await screen.findByRole("button", { name: /add "offline artist"/i }));
     await user.click(screen.getByRole("button", { name: /^request$/i }));
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/offline/i));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/artist request failed/i)
+    );
   });
 
   it("U-PROD-create-013 — Escape closes the artist request dialog", async () => {

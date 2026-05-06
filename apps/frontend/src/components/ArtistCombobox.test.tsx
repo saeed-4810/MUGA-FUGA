@@ -119,6 +119,8 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     renderBox();
     await userEvent.click(screen.getByRole("combobox", { name: /artist/i }));
     expect(await screen.findByText(/loading artists/i)).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /artist/i })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("listbox")).toHaveAttribute("aria-busy", "true");
     reject({ status: 500, code: "INTERNAL", message: "boom", requestId: "r1" });
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/INTERNAL/));
   });

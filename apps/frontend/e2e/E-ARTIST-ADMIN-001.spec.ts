@@ -8,11 +8,15 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("E-ARTIST-ADMIN-001 — admin artists route", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => window.sessionStorage.removeItem("muga:e2e-user"));
+  });
+
   test("E-ARTIST-ADMIN-001a — /admin/artists without auth redirects to /login", async ({
     page,
   }) => {
     await page.goto("/admin/artists");
-    await page.waitForURL(/\/login$/);
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
     await expect(page).toHaveURL(/\/login$/);
     await expect(
       page.getByRole("main").getByRole("button", { name: /sign in with google/i })
@@ -21,7 +25,7 @@ test.describe("E-ARTIST-ADMIN-001 — admin artists route", () => {
 
   test("E-ARTIST-ADMIN-001b — login chrome remains usable after redirect", async ({ page }) => {
     await page.goto("/admin/artists");
-    await page.waitForURL(/\/login$/);
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
     const banner = page.getByRole("banner");
     await expect(banner.getByTestId("theme-toggle")).toBeVisible();
     await expect(banner.getByTestId("locale-switcher")).toBeVisible();
@@ -37,7 +41,7 @@ test.describe("E-ARTIST-ADMIN-001 — admin artists route", () => {
       );
     });
     await page.goto("/admin/artists");
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("alert")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole("button", { name: /create artist/i })).toHaveCount(0);
   });
 });

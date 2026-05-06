@@ -19,6 +19,48 @@
   "create": {
     "title": "Product aanmaken",
     "subtitle": "Dien een nieuw muziekproduct in. Inzendingen van klanten wachten op goedkeuring door een beheerder.",
+    "formTitle": "Wizard voor productinzending",
+    "formDescription": "Doorloop de belangrijkste gegevens en controleer de inzending voordat deze naar de moderatiewachtrij gaat.",
+    "wizard": {
+      "label": "Voortgang product aanmaken",
+      "details": {
+        "label": "Details",
+        "description": "Geef de release een naam."
+      },
+      "artist": {
+        "label": "Artiest",
+        "description": "Selecteer of vraag een artiest aan."
+      },
+      "cover": {
+        "label": "Hoes",
+        "description": "Upload artwork voor de cataloguskaart."
+      },
+      "review": {
+        "label": "Controle",
+        "description": "Controleer de samenvatting voor het indienen."
+      }
+    },
+    "groups": {
+      "details": {
+        "title": "Releasedetails",
+        "description": "Gebruik de openbare producttitel die reviewers en klanten zien."
+      },
+      "artist": {
+        "title": "Artiest",
+        "description": "Kies een gepubliceerde artiest of vraag een nieuwe artiest aan voor review."
+      },
+      "cover": {
+        "title": "Hoes",
+        "description": "Upload een vierkante afbeelding voor lijsten, kaarten en dashboardvoorbeelden."
+      }
+    },
+    "review": {
+      "title": "Samenvatting van inzending",
+      "description": "Producten die klanten aanmaken blijven in behandeling tot een beheerder ze goedkeurt.",
+      "emptyName": "Nog geen productnaam",
+      "emptyArtist": "Geen artiest geselecteerd",
+      "emptyCover": "Geen hoes geselecteerd"
+    },
     "fields": {
       "name": "Productnaam",
       "artist": "Artiest",
@@ -33,7 +75,9 @@
     },
     "errors": {
       "artistRequired": "Kies een artiest.",
-      "coverRequired": "Kies een afbeelding voor de hoes."
+      "coverRequired": "Kies een afbeelding voor de hoes.",
+      "submitFailed": "Product inzenden is mislukt. Probeer het opnieuw.",
+      "submitFailedWithCode": "Product inzenden is mislukt ({{code}}). Probeer het opnieuw."
     }
   },
   "status": {

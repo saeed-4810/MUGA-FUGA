@@ -1,19 +1,20 @@
 /**
  * E-PROD-001 — Customer creates and browses products (observable behaviour).
  *
- * The full create-flow requires a signed-in user, so for environments
- * where Firebase Auth isn't reachable from the runner (the default
- * preview mode + the `isFirebaseConfigured` early-out) we assert the
- * route plumbing only.  In a fully-configured staging where the runner
- * has a service account or admin token (out of scope for this PR) the
- * flow can be expanded to actually submit a product.
+ * The signed-in create path uses the same localhost-only e2e user shim as
+ * the auth context and mocks the backend/storage boundaries. OAuth completion
+ * itself remains covered at the unit layer.
  */
 import { test, expect } from "@playwright/test";
 
 test.describe("E-PROD-001 — Products list + create", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => window.sessionStorage.removeItem("muga:e2e-user"));
+  });
+
   test("E-PROD-001a — /products without auth redirects to /login", async ({ page }) => {
     await page.goto("/products");
-    await page.waitForURL(/\/login$/);
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
     await expect(page).toHaveURL(/\/login$/);
     // Scope to <main> — the header <UserMenu /> renders the same label when
     // unauthenticated, which would otherwise trip Playwright's strict mode.
@@ -24,7 +25,7 @@ test.describe("E-PROD-001 — Products list + create", () => {
 
   test("E-PROD-001b — /products/new without auth redirects to /login", async ({ page }) => {
     await page.goto("/products/new");
-    await page.waitForURL(/\/login$/);
+    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
     await expect(page).toHaveURL(/\/login$/);
   });
 
@@ -73,5 +74,80 @@ test.describe("E-PROD-001 — Products list + create", () => {
     await expect(page.getByRole("button", { name: /add "e2e artist"/i })).toBeVisible();
     await page.getByRole("button", { name: /add "e2e artist"/i }).click();
     await expect(page.getByRole("dialog", { name: /request a new artist/i })).toBeVisible();
+  });
+
+  test("E-PROD-001e — customer completes create wizard and returns to products", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.sessionStorage.setItem(
+        "muga:e2e-user",
+        JSON.stringify({ uid: "e2e-customer", email: "customer@example.com", role: "customer" })
+      );
+    });
+    await page.route("**/products?status=pending", (route) =>
+      route.fulfill({ json: { items: [] } })
+    );
+    await page.route("**/artists?status=pending", (route) =>
+      route.fulfill({ json: { items: [] } })
+    );
+    await page.route("**/artists?status=published**", (route) =>
+      route.fulfill({
+        json: { items: [{ id: "artist-1", name: "E2E Artist", status: "published" }] },
+      })
+    );
+    await page.route("http://localhost:3001/products/signed-upload", (route) =>
+      route.fulfill({
+        json: {
+          uploadUrl: "http://localhost:5174/mock-cover-upload",
+          objectPath: "cover-art/e2e/cover.jpg",
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        },
+      })
+    );
+    await page.route("**/mock-cover-upload", (route) => route.fulfill({ status: 200, body: "" }));
+    let productCreated = false;
+    await page.route("http://localhost:3001/products", async (route) => {
+      if (route.request().method() === "POST") {
+        expect(route.request().postDataJSON()).toEqual({
+          name: "E2E Album",
+          artistId: "artist-1",
+          coverArtPath: "cover-art/e2e/cover.jpg",
+        });
+        productCreated = true;
+        await route.fulfill({ json: { id: "prod-1" } });
+        return;
+      }
+      await route.fulfill({
+        json: {
+          items: [
+            {
+              id: "prod-1",
+              name: "E2E Album",
+              artist: { id: "artist-1", name: "E2E Artist", status: "published" },
+              coverArtPath: "cover-art/e2e/cover.jpg",
+              coverArtUrl: "https://cdn.example/cover.jpg",
+              status: "pending",
+              ownerEmail: "customer@example.com",
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        },
+      });
+    });
+
+    await page.goto("/products/new");
+    await page.getByLabel(/product name/i).fill("E2E Album");
+    await page.getByRole("combobox", { name: /artist/i }).fill("E2E Artist");
+    await page.getByRole("option", { name: /e2e artist/i }).click();
+    await page.getByLabel(/cover art/i).setInputFiles({
+      name: "cover.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from("cover"),
+    });
+    await page.getByRole("button", { name: /^submit$/i }).click();
+    await expect(page).toHaveURL(/\/products$/);
+    expect(productCreated).toBe(true);
+    await expect(page.getByText("E2E Album")).toBeVisible();
   });
 });
