@@ -1,5 +1,5 @@
-/** U-PROD-create — CreateProductPage form with Artist FK workflow. */
-import { render, screen, waitFor, within } from "@testing-library/react";
+/** U-PROD-001..006 — CreateProductPage shadcn wizard with Artist FK workflow. */
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -64,8 +64,8 @@ beforeEach(() => {
   });
 });
 
-describe("U-PROD-create: CreateProductPage", () => {
-  it("U-PROD-create-001 — renders product, artist combobox, cover, submit, and cancel", () => {
+describe("U-PROD-001..006: CreateProductPage", () => {
+  it("U-PROD-001 — renders wizard steps, product details, artist combobox, cover, submit, and cancel", () => {
     renderPage();
     expect(screen.getByLabelText(/product name/i)).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /artist/i })).toBeInTheDocument();
@@ -74,13 +74,13 @@ describe("U-PROD-create: CreateProductPage", () => {
     expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
   });
 
-  it("U-PROD-create-002 — selecting a file renders a preview image", async () => {
+  it("U-PROD-002 — selecting a file renders a cover preview image", async () => {
     renderPage();
     await userEvent.upload(screen.getByLabelText(/cover art/i) as HTMLInputElement, makeImage());
     expect(document.querySelector('img[src="blob:mock"]')).not.toBeNull();
   });
 
-  it("U-PROD-create-003 — submit without a cover surfaces the validation error", async () => {
+  it("U-PROD-003 — submit without a cover surfaces the validation error", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.type(screen.getByLabelText(/product name/i), "Album");
@@ -92,7 +92,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     expect(apiPostMock).not.toHaveBeenCalled();
   });
 
-  it("U-PROD-create-004 — happy path uploads, creates with artistId, navigates", async () => {
+  it("U-PROD-004 — happy path uploads, creates with artistId, navigates", async () => {
     uploadCoverArtMock.mockResolvedValue("cover-art/u1/path.jpg");
     apiPostMock.mockResolvedValue({ id: "p1" });
     const user = userEvent.setup();
@@ -110,7 +110,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     });
   });
 
-  it("U-PROD-create-005 — upload failure (ApiError shape) shows contextualised error", async () => {
+  it("U-PROD-005a — upload failure (ApiError shape) shows contextualised error", async () => {
     uploadCoverArtMock.mockRejectedValue({
       status: 400,
       code: "VALIDATION_ERROR",
@@ -128,7 +128,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     );
   });
 
-  it("U-PROD-create-006 — upload failure (plain Error) shows the message", async () => {
+  it("U-PROD-005b — upload failure (plain Error) shows the generic message", async () => {
     uploadCoverArtMock.mockRejectedValue(new Error("network down"));
     const user = userEvent.setup();
     renderPage();
@@ -139,7 +139,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/submission failed/i));
   });
 
-  it("U-PROD-create-007 — cancel returns to /products without submitting", async () => {
+  it("U-PROD-006 — cancel returns to /products without submitting", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: /cancel/i }));
@@ -148,7 +148,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     expect(uploadCoverArtMock).not.toHaveBeenCalled();
   });
 
-  it("U-PROD-create-008 — submit button shows 'Submitting…' while in flight", async () => {
+  it("U-PROD-003b — submit button shows a spinner-backed 'Submitting…' state while in flight", async () => {
     let resolveUpload: ((v: string) => void) | undefined;
     uploadCoverArtMock.mockReturnValue(new Promise<string>((r) => (resolveUpload = r)));
     apiPostMock.mockResolvedValue({ id: "p1" });
@@ -163,7 +163,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     await waitFor(() => expect(screen.getByTestId("list")).toBeInTheDocument());
   });
 
-  it("U-PROD-create-009 — clearing the file input wipes the preview", async () => {
+  it("U-PROD-002b — clearing the file input wipes the preview", async () => {
     const user = userEvent.setup();
     renderPage();
     const input = screen.getByLabelText(/cover art/i) as HTMLInputElement;
@@ -173,11 +173,11 @@ describe("U-PROD-create: CreateProductPage", () => {
       configurable: true,
       get: () => [] as unknown as FileList,
     });
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+    fireEvent.change(input);
     await waitFor(() => expect(document.querySelector('img[src="blob:mock"]')).toBeNull());
   });
 
-  it("U-PROD-create-010 — request artist dialog creates pending artist then product uses its id", async () => {
+  it("U-PROD-004b — request artist dialog creates pending artist then product uses its id", async () => {
     apiGetMock.mockResolvedValue({ items: [] });
     uploadCoverArtMock.mockResolvedValue("cover-art/u1/path.jpg");
     apiPostMock
@@ -207,7 +207,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     });
   });
 
-  it("U-PROD-create-011 — submit without selected artist surfaces validation error", async () => {
+  it("U-PROD-003c — submit without selected artist surfaces validation error", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.type(screen.getByLabelText(/product name/i), "Album");
@@ -217,7 +217,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     expect(uploadCoverArtMock).not.toHaveBeenCalled();
   });
 
-  it("U-PROD-create-012 — request artist failure surfaces error and dialog can cancel", async () => {
+  it("U-PROD-005c — request artist failure surfaces error and dialog can cancel", async () => {
     apiGetMock.mockResolvedValue({ items: [] });
     apiPostMock.mockRejectedValueOnce({
       status: 409,
@@ -238,7 +238,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("U-PROD-create-012b — request artist plain Error surfaces its message", async () => {
+  it("U-PROD-005d — request artist plain Error surfaces generic message", async () => {
     apiGetMock.mockResolvedValue({ items: [] });
     apiPostMock.mockRejectedValueOnce(new Error("offline"));
     const user = userEvent.setup();
@@ -252,7 +252,7 @@ describe("U-PROD-create: CreateProductPage", () => {
     );
   });
 
-  it("U-PROD-create-013 — Escape closes the artist request dialog", async () => {
+  it("U-PROD-006b — Escape closes the artist request dialog", async () => {
     apiGetMock.mockResolvedValue({ items: [] });
     const user = userEvent.setup();
     renderPage();

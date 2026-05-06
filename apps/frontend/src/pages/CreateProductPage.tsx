@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -184,6 +185,7 @@ export const CreateProductPage = () => {
                 <div className="space-y-2">
                   <Label htmlFor="cover">{t("products:create.fields.coverArt")}</Label>
                   <Input
+                    aria-describedby="cover-hint"
                     accept="image/jpeg,image/png,image/webp,image/avif"
                     className="file:bg-primary file:text-primary-foreground file:mr-4 file:rounded-lg file:border-0 file:px-3 file:py-2"
                     id="cover"
@@ -191,7 +193,7 @@ export const CreateProductPage = () => {
                     required
                     type="file"
                   />
-                  <p className="text-muted-foreground text-xs">
+                  <p className="text-muted-foreground text-xs" id="cover-hint">
                     {t("products:create.fields.coverHint")}
                   </p>
                 </div>
@@ -215,14 +217,19 @@ export const CreateProductPage = () => {
                   {t("products:create.actions.cancel")}
                 </Button>
                 <Button aria-busy={submitting} disabled={submitting} type="submit">
-                  {submitting
-                    ? t("products:create.actions.submitting")
-                    : t("products:create.actions.submit")}
+                  {submitting ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                      {t("products:create.actions.submitting")}
+                    </span>
+                  ) : (
+                    t("products:create.actions.submit")
+                  )}
                 </Button>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-muted/40 h-fit">
+          <Card className="bg-muted/40 h-fit lg:sticky lg:top-6">
             <CardHeader>
               <CardTitle className="text-xl">{t("products:create.review.title")}</CardTitle>
               <CardDescription>{t("products:create.review.description")}</CardDescription>

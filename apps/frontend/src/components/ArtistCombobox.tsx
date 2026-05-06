@@ -3,6 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import { api, type ApiError } from "../lib/api";
 
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+
+import { cn } from "@/lib/utils";
+
 export interface ArtistOption {
   id: string;
   name: string;
@@ -90,10 +96,8 @@ export const ArtistCombobox = ({
 
   return (
     <div className="relative">
-      <label htmlFor={inputId} className="label">
-        {t("combobox.label")}
-      </label>
-      <input
+      <Label htmlFor={inputId}>{t("combobox.label")}</Label>
+      <Input
         id={inputId}
         role="combobox"
         aria-busy={loading}
@@ -103,7 +107,7 @@ export const ArtistCombobox = ({
         aria-activedescendant={
           open && items[activeIndex] ? `${listboxId}-${items[activeIndex].id}` : undefined
         }
-        className="input"
+        className="mt-2"
         value={query}
         disabled={disabled}
         placeholder={t("combobox.placeholder")}
@@ -131,21 +135,21 @@ export const ArtistCombobox = ({
       />
       {open && (
         <div
-          className="border-line bg-surface shadow-glow absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-xl border p-2"
+          className="border-border bg-popover text-popover-foreground shadow-glow absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-xl border p-2"
           role="listbox"
           aria-busy={loading}
           id={listboxId}
         >
           {loading && (
-            <div className="text-ink-muted px-3 py-2 text-sm">{t("combobox.loading")}</div>
+            <div className="text-muted-foreground px-3 py-2 text-sm">{t("combobox.loading")}</div>
           )}
           {error && !loading && (
-            <div role="alert" className="px-3 py-2 text-sm text-red-600 dark:text-red-300">
+            <div role="alert" className="text-destructive px-3 py-2 text-sm dark:text-red-200">
               {t("combobox.error", { code: error.code })}
             </div>
           )}
           {!loading && !error && items.length === 0 && (
-            <div className="text-ink-muted px-3 py-2 text-sm">{t("combobox.empty")}</div>
+            <div className="text-muted-foreground px-3 py-2 text-sm">{t("combobox.empty")}</div>
           )}
           {!loading &&
             !error &&
@@ -156,16 +160,17 @@ export const ArtistCombobox = ({
                 aria-selected={value?.id === artist.id}
                 id={`${listboxId}-${artist.id}`}
                 key={artist.id}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${
-                  index === activeIndex ? "bg-surface-muted" : "hover:bg-surface-muted"
-                }`}
+                className={cn(
+                  "hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm outline-none focus-visible:ring-2",
+                  index === activeIndex && "bg-accent text-accent-foreground"
+                )}
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => selectArtist(artist)}
               >
                 {artist.imageUrl ? (
                   <img src={artist.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
                 ) : (
-                  <span className="bg-surface-muted text-ink-subtle grid h-8 w-8 place-items-center rounded-full">
+                  <span className="bg-muted text-muted-foreground grid h-8 w-8 place-items-center rounded-full">
                     ♪
                   </span>
                 )}
@@ -173,13 +178,14 @@ export const ArtistCombobox = ({
               </button>
             ))}
           {canRequest && (
-            <button
+            <Button
               type="button"
-              className="btn-ghost mt-2 h-9 w-full justify-start"
+              className="mt-2 h-9 w-full justify-start"
+              variant="ghost"
               onClick={requestNew}
             >
               {t("combobox.addNew", { name: query.trim() })}
-            </button>
+            </Button>
           )}
         </div>
       )}

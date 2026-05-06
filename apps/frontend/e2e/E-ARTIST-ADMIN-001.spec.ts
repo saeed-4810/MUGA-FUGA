@@ -23,12 +23,14 @@ test.describe("E-ARTIST-ADMIN-001 — admin artists route", () => {
     ).toBeVisible();
   });
 
-  test("E-ARTIST-ADMIN-001b — login chrome remains usable after redirect", async ({ page }) => {
+  test("E-ARTIST-ADMIN-001b — login overlay remains usable after redirect", async ({ page }) => {
     await page.goto("/admin/artists");
     await page.waitForURL(/\/login$/, { waitUntil: "commit" });
-    const banner = page.getByRole("banner");
-    await expect(banner.getByTestId("theme-toggle")).toBeVisible();
-    await expect(banner.getByTestId("locale-switcher")).toBeVisible();
+    const main = page.getByRole("main");
+    await expect(main.getByTestId("theme-toggle")).toBeVisible();
+    await expect(main.getByTestId("locale-switcher")).toBeVisible();
+    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect(page.getByRole("navigation")).toHaveCount(0);
   });
 
   test("E-ARTIST-ADMIN-001c — customer hitting /admin/artists sees forbidden card", async ({

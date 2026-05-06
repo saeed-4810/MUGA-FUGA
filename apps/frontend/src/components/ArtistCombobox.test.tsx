@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 
 describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
-  it("loads artists, renders image/fallback options, and selects an option", async () => {
+  it("U-ARTIST-COMBO-001 — loads artists, renders image/fallback options, and selects an option", async () => {
     const user = userEvent.setup();
     const { onChange } = renderBox();
     await user.click(screen.getByRole("combobox", { name: /artist/i }));
@@ -47,7 +47,7 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     expect(onChange).toHaveBeenCalledWith(artists[0]);
   });
 
-  it("debounces search queries and shows add-new footer for no exact match", async () => {
+  it("U-ARTIST-COMBO-002 — debounces search queries and shows add-new footer for no exact match", async () => {
     apiGetMock.mockResolvedValue({ items: [] });
     const user = userEvent.setup();
     const { onRequestNew } = renderBox();
@@ -59,7 +59,7 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     expect(onRequestNew).toHaveBeenCalledWith("New Artist");
   });
 
-  it("clears selection while typing and hides add-new when there is an exact match", async () => {
+  it("U-ARTIST-COMBO-003 — clears selection while typing and hides add-new when there is an exact match", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderBox({ value: artists[0]!, onChange });
@@ -72,7 +72,7 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     expect(screen.queryByRole("button", { name: /add/i })).toBeNull();
   });
 
-  it("supports keyboard navigation and Enter selection", async () => {
+  it("U-ARTIST-COMBO-004 — supports keyboard navigation and Enter selection", async () => {
     const user = userEvent.setup();
     const { onChange } = renderBox();
     const input = screen.getByRole("combobox", { name: /artist/i });
@@ -82,7 +82,7 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     expect(onChange).toHaveBeenCalledWith(artists[1]);
   });
 
-  it("supports ArrowUp wrapping from the first option", async () => {
+  it("U-ARTIST-COMBO-005 — supports ArrowUp wrapping from the first option", async () => {
     const user = userEvent.setup();
     const { onChange } = renderBox();
     const input = screen.getByRole("combobox", { name: /artist/i });
@@ -92,7 +92,7 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     expect(onChange).toHaveBeenCalledWith(artists[1]);
   });
 
-  it("closes the listbox with Escape", async () => {
+  it("U-ARTIST-COMBO-006 — closes the listbox with Escape", async () => {
     const user = userEvent.setup();
     renderBox();
     const input = screen.getByRole("combobox", { name: /artist/i });
@@ -102,7 +102,7 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
   });
 
-  it("ArrowDown is a no-op when there are no options", async () => {
+  it("U-ARTIST-COMBO-007 — ArrowDown is a no-op when there are no options", async () => {
     apiGetMock.mockResolvedValue({ items: [] });
     const user = userEvent.setup();
     const { onChange } = renderBox();
@@ -113,7 +113,7 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("renders loading and API error states", async () => {
+  it("U-ARTIST-COMBO-008..009 — renders loading and API error states", async () => {
     let reject!: (error: unknown) => void;
     apiGetMock.mockReturnValue(new Promise((_resolve, rej) => (reject = rej)));
     renderBox();
@@ -125,7 +125,7 @@ describe("U-ARTIST-COMBO-001..010: ArtistCombobox", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/INTERNAL/));
   });
 
-  it("respects disabled state and ignores empty request names", async () => {
+  it("U-ARTIST-COMBO-010 — respects disabled state and ignores empty request names", async () => {
     apiGetMock.mockResolvedValue({ items: [] });
     const { onRequestNew } = renderBox({ disabled: true });
     expect(screen.getByRole("combobox", { name: /artist/i })).toBeDisabled();

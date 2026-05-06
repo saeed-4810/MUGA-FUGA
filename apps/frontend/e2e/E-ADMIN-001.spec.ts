@@ -10,8 +10,8 @@
  *   2. signed-in customer hitting /admin/queue sees the role-mismatch
  *      forbidden card (covered at the unit layer; e2e cannot fake a
  *      customer ID token without admin tooling)
- *   3. The /login route renders chrome correctly when a deep link to
- *      /admin/queue forces a redirect
+ *   3. The /login route renders the chrome-less overlay controls correctly
+ *      when a deep link to /admin/queue forces a redirect
  *
  * Approve/reject behaviour is covered at the unit layer in
  * src/pages/AdminQueuePage.test.tsx (U-ADMIN-004a..c), where the
@@ -36,15 +36,14 @@ test.describe("E-ADMIN-001 — admin approval queue", () => {
     ).toBeVisible();
   });
 
-  test("E-ADMIN-001b — login chrome stays usable after a deep-link redirect", async ({ page }) => {
+  test("E-ADMIN-001b — login overlay stays usable after a deep-link redirect", async ({ page }) => {
     await page.goto("/admin/queue");
     await page.waitForURL(/\/login$/, { waitUntil: "commit" });
-    // Theme toggle + locale switcher must remain reachable in the header
-    // (banner) after the redirect. The LoginPage also renders an in-page
-    // copy of both, so we scope to the banner to keep the locator
-    // unambiguous and to test the chrome the user actually relies on.
-    const banner = page.getByRole("banner");
-    await expect(banner.getByTestId("theme-toggle")).toBeVisible();
-    await expect(banner.getByTestId("locale-switcher")).toBeVisible();
+    const main = page.getByRole("main");
+    await expect(main.getByTestId("theme-toggle")).toBeVisible();
+    await expect(main.getByTestId("locale-switcher")).toBeVisible();
+    // AppShell chrome is intentionally absent on /login (JS/router-level split).
+    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect(page.getByRole("navigation")).toHaveCount(0);
   });
 });

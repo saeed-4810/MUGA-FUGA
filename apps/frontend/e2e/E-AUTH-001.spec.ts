@@ -5,7 +5,7 @@
  * no test harness from Google). This spec covers what we CAN deterministically
  * assert end-to-end without crossing the Google popup boundary:
  *
- *   1. /login renders with brand + locale + theme + sign-in button
+ *   1. /login renders as a chrome-less overlay with brand + locale + theme + sign-in button
  *   2. Clicking the protected /products route while unauthenticated redirects to /login
  *   3. Clicking the protected /admin/queue route while unauthenticated redirects to /login
  *   4. Clicking the sign-in button opens (or attempts to open) a popup
@@ -22,25 +22,24 @@ test.describe("E-AUTH-001 — Google sign-in flow", () => {
     await page.addInitScript(() => window.sessionStorage.removeItem("muga:e2e-user"));
   });
 
-  test("E-AUTH-001a — /login renders sign-in CTA + brand + chrome", async ({ page }) => {
+  test("E-AUTH-001a — /login renders sign-in CTA + brand + chrome-less overlay", async ({
+    page,
+  }) => {
     await page.goto("/login");
-    // Brand mark visible (filter to the visible one — sidebar copy is hidden on mobile)
-    await expect(
-      page.getByText("MUGA", { exact: true }).filter({ visible: true }).first()
-    ).toBeVisible();
-    // Pre-auth chrome: locale + theme always reachable from the header
-    // (banner). The LoginPage also renders an in-page copy in <main>, so we
-    // scope to the banner to keep the locator unambiguous and to assert the
-    // chrome the user actually sees on every other route too.
-    const banner = page.getByRole("banner");
-    await expect(banner.getByTestId("locale-switcher")).toBeVisible();
-    await expect(banner.getByTestId("theme-toggle")).toBeVisible();
-    // Sign-in CTA is the call-to-action on the login page. The header
-    // <UserMenu /> renders an identical button when unauthenticated, so we
-    // scope the locator to the <main> landmark to disambiguate.
-    await expect(
-      page.getByRole("main").getByRole("button", { name: /sign in with google/i })
-    ).toBeVisible();
+    // Brand mark visible: desktop uses the FUGA logo in the hero; mobile keeps
+    // the compact MUGA text mark in the auth column.
+    const visibleFugaLogo = page.getByRole("img", { name: /fuga/i }).filter({ visible: true });
+    const visibleMugaText = page.getByText("MUGA", { exact: true }).filter({ visible: true });
+    await expect(visibleFugaLogo.or(visibleMugaText).first()).toBeVisible();
+    // Pre-auth overlay: locale + theme controls are rendered inside the login
+    // main content. AppShell chrome is intentionally NOT mounted on /login.
+    const main = page.getByRole("main");
+    await expect(main.getByTestId("locale-switcher")).toBeVisible();
+    await expect(main.getByTestId("theme-toggle")).toBeVisible();
+    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect(page.getByRole("navigation")).toHaveCount(0);
+    // Sign-in CTA is the call-to-action on the login page.
+    await expect(main.getByRole("button", { name: /sign in with google/i })).toBeVisible();
   });
 
   test("E-AUTH-001b — unauthenticated visit to /products redirects to /login", async ({ page }) => {
@@ -89,10 +88,7 @@ test.describe("E-AUTH-001 — Google sign-in flow", () => {
 
   test("E-AUTH-001e — locale switcher persists across navigations", async ({ page }) => {
     await page.goto("/login");
-    // Use the header (banner) switcher — the LoginPage also renders an
-    // in-page copy in <main>, which would trip strict mode on the global
-    // testid query. The header copy is the one users see across the app.
-    const switcher = page.getByRole("banner").getByTestId("locale-switcher");
+    const switcher = page.getByRole("main").getByTestId("locale-switcher");
     await switcher.selectOption("nl");
     // Round-trip through a navigation to assert the choice survives
     await page.reload();
