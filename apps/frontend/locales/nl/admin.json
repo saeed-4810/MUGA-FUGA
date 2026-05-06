@@ -6,6 +6,7 @@
       "title": "Inbox leeg",
       "body": "Er is op dit moment niets te beoordelen."
     },
+    "loading": "Goedkeuringswachtrij laden",
     "columns": {
       "owner": "Eigenaar",
       "created": "Aangemaakt",

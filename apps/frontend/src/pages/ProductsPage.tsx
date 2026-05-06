@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
+import { EmptyState, ErrorState, LoadingSkeleton } from "../components/Composition";
 import { PageHeader } from "../components/PageHeader";
 import { RequireAuth } from "../components/RequireAuth";
 import { api, type ApiError } from "../lib/api";
@@ -46,25 +47,19 @@ export const ProductsPage = () => {
         }
       />
       {error && (
-        <div role="alert" className="card mb-4 border-red-500/40 bg-red-500/10 p-4 text-sm">
-          {t("list.errors.load", { code: error.code })}
-        </div>
+        <ErrorState className="mb-4">{t("list.errors.load", { code: error.code })}</ErrorState>
       )}
-      {!products && !error && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="card h-56 animate-pulse" aria-busy="true" />
-          ))}
-        </div>
-      )}
+      {!products && !error && <LoadingSkeleton count={6} grid label={t("list.loading")} />}
       {products && products.length === 0 && (
-        <div className="card p-10 text-center">
-          <h2 className="text-lg font-semibold">{t("list.empty.title")}</h2>
-          <p className="text-ink-muted mt-2 text-sm">{t("list.empty.body")}</p>
-          <Link to="/products/new" className="btn-primary mt-4 inline-flex">
-            {t("list.actions.create")}
-          </Link>
-        </div>
+        <EmptyState
+          action={
+            <Link to="/products/new" className="btn-primary">
+              {t("list.actions.create")}
+            </Link>
+          }
+          description={t("list.empty.body")}
+          title={t("list.empty.title")}
+        />
       )}
       {products && products.length > 0 && (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="product-grid">

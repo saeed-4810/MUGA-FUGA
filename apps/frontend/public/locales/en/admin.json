@@ -6,6 +6,7 @@
       "title": "Inbox zero",
       "body": "Nothing to review right now."
     },
+    "loading": "Loading approval queue",
     "columns": {
       "owner": "Owner",
       "created": "Created",

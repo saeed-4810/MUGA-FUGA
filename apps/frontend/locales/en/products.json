@@ -10,6 +10,7 @@
     "errors": {
       "load": "Couldn't load products ({{code}})."
     },
+    "loading": "Loading products",
     "coverAlt": "Cover art for {{name}}",
     "columns": {
       "name": "Name",

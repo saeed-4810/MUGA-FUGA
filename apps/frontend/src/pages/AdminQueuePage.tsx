@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { EmptyState, ErrorState, LoadingSkeleton } from "../components/Composition";
 import { PageHeader } from "../components/PageHeader";
 import { RequireAuth } from "../components/RequireAuth";
 import { api, type ApiError } from "../lib/api";
@@ -50,16 +51,16 @@ export const AdminQueuePage = () => {
     <RequireAuth role="admin">
       <PageHeader title={t("admin:queue.title")} description={t("admin:queue.subtitle")} />
       {error && (
-        <div role="alert" className="card mb-4 border-red-500/40 bg-red-500/10 p-4 text-sm">
+        <ErrorState className="mb-4">
           {error.code}: {error.message}
-        </div>
+        </ErrorState>
       )}
-      {!items && !error && <div className="card h-32 animate-pulse" aria-busy="true" />}
+      {!items && !error && <LoadingSkeleton label={t("admin:queue.loading")} shape="row" />}
       {items && items.length === 0 && (
-        <div className="card p-10 text-center">
-          <h2 className="text-lg font-semibold">{t("admin:queue.empty.title")}</h2>
-          <p className="text-ink-muted mt-2 text-sm">{t("admin:queue.empty.body")}</p>
-        </div>
+        <EmptyState
+          description={t("admin:queue.empty.body")}
+          title={t("admin:queue.empty.title")}
+        />
       )}
       {items && items.length > 0 && (
         <div className="card overflow-hidden">
