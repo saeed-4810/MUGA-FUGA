@@ -31,7 +31,7 @@ vi.mock("./UserMenu", () => ({
   UserMenu: () => <button>user menu</button>,
 }));
 
-import { AppShell } from "./AppShell";
+import { AppShell, AuthLayout } from "./AppShell";
 
 const renderShell = (initialPath = "/admin/queue") =>
   render(
@@ -41,6 +41,17 @@ const renderShell = (initialPath = "/admin/queue") =>
           <Route index element={<div>home</div>} />
           <Route path="admin/queue" element={<div>queue</div>} />
           <Route path="admin/artists" element={<div>artists</div>} />
+        </Route>
+      </Routes>
+    </MemoryRouter>
+  );
+
+const renderAuthLayout = () =>
+  render(
+    <MemoryRouter initialEntries={["/login"]}>
+      <Routes>
+        <Route path="/login" element={<AuthLayout />}>
+          <Route index element={<div data-testid="login-overlay">login</div>} />
         </Route>
       </Routes>
     </MemoryRouter>
@@ -90,5 +101,20 @@ describe("U-APP-SHELL-001..004: AppShell", () => {
     expect(screen.getByText("/admin/artists")).toBeInTheDocument();
     expect(screen.getByTestId("locale-switcher")).toBeInTheDocument();
     expect(screen.getByTestId("theme-toggle")).toBeInTheDocument();
+  });
+
+  it("U-APP-SHELL-005 — AuthLayout renders the outlet without sidebar, topbar, or pending poll", () => {
+    useAuthMock.mockReturnValue({ user: null });
+    renderAuthLayout();
+    // Login overlay child is rendered inside the auth layout
+    expect(screen.getByTestId("login-overlay")).toBeInTheDocument();
+    // Chrome is NOT in the React tree on /login (JS-level isolation, not CSS)
+    expect(screen.queryByRole("link", { name: /artists/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /approval queue/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /products/i })).toBeNull();
+    expect(screen.queryByTestId("locale-switcher")).toBeNull();
+    expect(screen.queryByTestId("theme-toggle")).toBeNull();
+    // Pending-review API must not be called pre-auth
+    expect(apiGetMock).not.toHaveBeenCalled();
   });
 });

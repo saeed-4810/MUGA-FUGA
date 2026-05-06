@@ -51,7 +51,13 @@ describe("U-AUTH-001: LoginPage", () => {
       signOut: vi.fn(),
     });
     renderAt("/login");
-    expect(screen.getAllByText("MUGA", { selector: "div" })).toHaveLength(2);
+    // Auth-column brand mark (mobile-visible <div>) is preserved
+    expect(screen.getByText("MUGA", { selector: "div" })).toBeInTheDocument();
+    // Hero heading is now the FUGA logo image, alt text matches login.heroTitle
+    const logo = screen.getByTestId("fuga-logo");
+    expect(logo).toBeInTheDocument();
+    expect(logo).toHaveAttribute("src", "/fuga-logo.svg");
+    expect(logo).toHaveAttribute("alt", expect.stringMatching(/fuga/i));
     expect(screen.getByRole("heading", { name: /sign in to muga/i })).toBeInTheDocument();
     expect(screen.getByTestId("locale-switcher")).toBeInTheDocument();
     expect(screen.getByTestId("theme-toggle")).toBeInTheDocument();
@@ -136,5 +142,56 @@ describe("U-AUTH-001: LoginPage", () => {
     });
     renderAt("/login");
     expect(screen.getByRole("button", { name: /sign in with google/i })).toBeDisabled();
+  });
+
+  it("U-AUTH-001f — submitting state shows spinner copy + live region while signIn is in-flight", async () => {
+    let resolveSignIn: () => void = () => undefined;
+    const signIn = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSignIn = resolve;
+        })
+    );
+    useAuthMock.mockReturnValue({
+      user: null,
+      loading: false,
+      signIn,
+      signOut: vi.fn(),
+    });
+    const user = userEvent.setup();
+    renderAt("/login");
+    const cta = screen.getByRole("button", { name: /sign in with google/i });
+    await user.click(cta);
+    // While signIn is pending, the button label flips to the submitting copy and a live region announces progress
+    const submittingButton = await screen.findByRole("button", { name: /signing in…/i });
+    expect(submittingButton).toBeDisabled();
+    expect(submittingButton).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveTextContent(/opening google sign-in/i);
+    // A second click while submitting must not double-fire signIn
+    await user.click(submittingButton);
+    expect(signIn).toHaveBeenCalledTimes(1);
+    // Resolve signIn -> button returns to its idle label and the status message clears
+    resolveSignIn();
+    await screen.findByRole("button", { name: /sign in with google/i });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("U-AUTH-001g — login shell is responsive: stacks on small viewports, splits at lg", () => {
+    useAuthMock.mockReturnValue({
+      user: null,
+      loading: false,
+      signIn: vi.fn(),
+      signOut: vi.fn(),
+    });
+    renderAt("/login");
+    const shell = screen.getByTestId("login-shell");
+    // Mobile/tablet (<1024px) defaults: single column shell
+    expect(shell).toHaveClass("grid");
+    // Desktop (>=1024px): two-column split between hero + auth card
+    expect(shell.className).toContain("lg:grid-cols-[1.05fr_0.95fr]");
+    // Hero panel hidden under lg, visible from lg up
+    const hero = shell.firstElementChild;
+    expect(hero?.className).toContain("hidden");
+    expect(hero?.className).toContain("lg:block");
   });
 });

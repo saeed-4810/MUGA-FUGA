@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router-dom";
@@ -14,14 +15,19 @@ export const LoginPage = () => {
   const { t } = useTranslation("auth");
   const { user, signIn, loading } = useAuth();
   const [signInError, setSignInError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   if (user) return <Navigate to="/" replace />;
   const firebaseReady = isFirebaseConfigured();
+  const ctaDisabled = loading || submitting || !firebaseReady;
   const handleSignIn = async () => {
     setSignInError(null);
+    setSubmitting(true);
     try {
       await signIn();
     } catch {
       setSignInError(t("login.errors.signInFailed"));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -32,19 +38,26 @@ export const LoginPage = () => {
         users still get i18n + dark mode. Also covers E-SHELL-001 (landing
         renders MUGA, theme toggle, locale switcher without requiring auth).
       */}
-      <div className="border-border bg-card shadow-soft grid w-full max-w-5xl overflow-hidden rounded-3xl border lg:grid-cols-[1.05fr_0.95fr]">
+      <div
+        className="border-border bg-card shadow-soft grid w-full max-w-5xl overflow-hidden rounded-3xl border lg:grid-cols-[1.05fr_0.95fr]"
+        data-testid="login-shell"
+      >
         <div className="bg-primary text-primary-foreground relative hidden overflow-hidden p-10 lg:block">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.28),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(0,0,0,0.24),transparent_40%)]" />
           <div className="relative flex h-full flex-col justify-between">
-            <div className="space-y-6">
-              <div className="text-2xl font-bold tracking-tight">MUGA</div>
+            <div className="space-y-8">
+              <h1 className="m-0">
+                <img
+                  alt={t("login.heroTitle")}
+                  className="h-12 w-auto"
+                  data-testid="fuga-logo"
+                  src="/fuga-logo.svg"
+                />
+              </h1>
               <div className="space-y-3">
                 <p className="text-sm font-medium uppercase tracking-[0.24em] opacity-80">
                   {t("login.eyebrow")}
                 </p>
-                <h1 className="font-display text-4xl font-bold leading-tight">
-                  {t("login.heroTitle")}
-                </h1>
                 <p className="max-w-md text-sm leading-7 opacity-85">{t("login.heroBody")}</p>
               </div>
             </div>
@@ -89,14 +102,32 @@ export const LoginPage = () => {
                 </StatusBanner>
               )}
               <Button
-                aria-busy={loading}
+                aria-busy={submitting || loading}
+                aria-disabled={ctaDisabled}
+                aria-label={submitting ? t("login.submitting") : t("actions.signInWithGoogle")}
                 className="h-12 w-full rounded-xl"
-                disabled={loading || !firebaseReady}
+                disabled={ctaDisabled}
                 onClick={() => void handleSignIn()}
                 type="button"
               >
-                {t("actions.signInWithGoogle")}
+                {submitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    {t("login.submitting")}
+                  </span>
+                ) : (
+                  t("actions.signInWithGoogle")
+                )}
               </Button>
+              {submitting && (
+                <p
+                  aria-live="polite"
+                  className="text-muted-foreground text-center text-xs leading-5"
+                  role="status"
+                >
+                  {t("login.submittingDescription")}
+                </p>
+              )}
               <p className="text-muted-foreground text-center text-xs leading-5">
                 {t("login.securityNote")}
               </p>

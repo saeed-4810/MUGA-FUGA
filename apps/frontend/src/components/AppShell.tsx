@@ -123,10 +123,35 @@ const ShellInner = () => (
   </div>
 );
 
-export const AppShell = () => (
+/**
+ * `AppProviders` — root context wrapper used by every layout (chrome and
+ * chrome-less). Centralises Theme + Auth so authenticated state is shared
+ * across `AppShell` (post-auth) and `AuthLayout` (pre-auth) without
+ * re-mounting the AuthProvider on navigation between them.
+ */
+export const AppProviders = ({ children }: { children: React.ReactNode }) => (
   <ThemeProvider>
-    <AuthProvider>
-      <ShellInner />
-    </AuthProvider>
+    <AuthProvider>{children}</AuthProvider>
   </ThemeProvider>
+);
+
+/**
+ * `AuthLayout` — chrome-less layout for pre-auth routes (e.g. `/login`).
+ * Mounts the same providers as `AppShell` but renders neither Sidebar nor
+ * TopBar, so the login screen is a true overlay rather than embedded inside
+ * the post-auth chrome. The fix is at the router/JS layer (separate route
+ * branches), not at the CSS layer (no `display:none` tricks).
+ */
+export const AuthLayout = () => (
+  <AppProviders>
+    <main className="bg-surface text-ink animate-fade-in min-h-screen">
+      <Outlet />
+    </main>
+  </AppProviders>
+);
+
+export const AppShell = () => (
+  <AppProviders>
+    <ShellInner />
+  </AppProviders>
 );
