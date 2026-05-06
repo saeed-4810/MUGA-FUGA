@@ -11,7 +11,9 @@
       "load": "Couldn't load products ({{code}})."
     },
     "loading": "Loading products",
+    "cardLabel": "{{name}} by {{artist}}, {{status}}",
     "coverAlt": "Cover art for {{name}}",
+    "coverFallback": "Cover art placeholder",
     "columns": {
       "name": "Name",
       "artist": "Artist"

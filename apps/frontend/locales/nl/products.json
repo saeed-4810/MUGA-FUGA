@@ -11,7 +11,9 @@
       "load": "Kon producten niet laden ({{code}})."
     },
     "loading": "Producten laden",
+    "cardLabel": "{{name}} van {{artist}}, {{status}}",
     "coverAlt": "Hoes van {{name}}",
+    "coverFallback": "Plaatshouder voor hoes",
     "columns": {
       "name": "Naam",
       "artist": "Artiest"

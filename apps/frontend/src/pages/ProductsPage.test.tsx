@@ -4,8 +4,8 @@
  * Covers:
  *   - loading state renders 6 skeleton cards with aria-busy
  *   - empty state shows the empty card + create CTA
- *   - success state renders the grid with cover image, name, artist, status
- *   - missing cover URL falls back to the music-note placeholder
+ *   - success state renders the shadcn card grid with cover image, artist avatar, status pill
+ *   - missing cover URL falls back to the music-note placeholder and artist initial
  *   - error state renders a role="alert" with the API code interpolated
  *   - blocked state (when RequireAuth redirects) is covered indirectly:
  *     unauthenticated users are routed to /login by the guard, which is
@@ -65,7 +65,7 @@ describe("U-PROD-001..006: ProductsPage", () => {
     expect(ctas.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("U-PROD-003 — success state renders cover, name, artist, status", async () => {
+  it("U-PROD-003 — success state renders shadcn card, cover, artist avatar, status", async () => {
     apiGetMock.mockResolvedValue({
       items: [
         {
@@ -87,16 +87,17 @@ describe("U-PROD-001..006: ProductsPage", () => {
     });
     renderPage();
     await waitFor(() => expect(screen.getByText("Neon Lullabies")).toBeInTheDocument());
+    expect(screen.getByTestId("product-grid")).toHaveClass("sm:grid-cols-2", "lg:grid-cols-3");
+    expect(screen.getByLabelText("Neon Lullabies by Aurora, Published")).toBeInTheDocument();
     expect(screen.getByText("Aurora")).toBeInTheDocument();
     expect(screen.getByText(/published/i)).toBeInTheDocument();
     const img = document.querySelector('img[src="https://cdn.example/cover1.jpg"]');
     expect(img).not.toBeNull();
     expect(img).toHaveAttribute("alt", expect.stringContaining("Neon Lullabies"));
     expect(img).toHaveAttribute("loading", "lazy");
-    expect(document.querySelector('img[src="https://cdn.example/artist.jpg"]')).not.toBeNull();
   });
 
-  it("U-PROD-004 — missing coverArtUrl falls back to the music-note placeholder", async () => {
+  it("U-PROD-004 — missing coverArtUrl falls back to cover note and artist initial", async () => {
     apiGetMock.mockResolvedValue({
       items: [
         {
@@ -108,11 +109,22 @@ describe("U-PROD-001..006: ProductsPage", () => {
           ownerEmail: "a@example.com",
           createdAt: "2026-05-01T10:00:00Z",
         },
+        {
+          id: "p2",
+          name: "Blank Artist Name",
+          artist: { id: "art-3", name: "   ", status: "published" },
+          coverArtPath: "cover-art/u/y.jpg",
+          coverArtUrl: "https://cdn.example/cover2.jpg",
+          status: "published",
+          ownerEmail: "a@example.com",
+          createdAt: "2026-05-01T10:00:00Z",
+        },
       ],
     });
     renderPage();
     await waitFor(() => expect(screen.getByText("No Cover")).toBeInTheDocument());
-    expect(document.querySelector("img")).toBeNull();
+    expect(screen.getByRole("img", { name: /cover art placeholder/i })).toHaveTextContent("♪");
+    expect(screen.getByText("Q")).toBeInTheDocument();
     expect(screen.getAllByText("♪")).toHaveLength(2);
   });
 

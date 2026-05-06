@@ -149,5 +149,9 @@ test.describe("E-PROD-001 — Products list + create", () => {
     await expect(page).toHaveURL(/\/products$/);
     expect(productCreated).toBe(true);
     await expect(page.getByText("E2E Album")).toBeVisible();
+    await expect(page.getByLabel("E2E Album by E2E Artist, Pending review")).toBeVisible();
+    await expect(page.getByText("E2E Artist")).toBeVisible();
+    await expect(page.getByText("Pending review")).toBeVisible();
+    await expect(page.getByAltText("Cover art for E2E Album")).toBeVisible();
   });
 });
