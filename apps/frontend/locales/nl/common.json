@@ -7,6 +7,10 @@
     "artists": "Artiesten",
     "adminQueue": "Goedkeuringswachtrij",
     "pendingReview": "{{count}} in beoordeling",
+    "openMenu": "Navigatiemenu openen",
+    "closeMenu": "Navigatiemenu sluiten",
+    "closeMenuBackdrop": "Navigatie-overlay sluiten",
+    "mobileMenu": "Mobiele navigatie",
     "signIn": "Inloggen"
   },
   "topbar": {

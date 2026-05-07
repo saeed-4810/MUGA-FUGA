@@ -214,8 +214,15 @@ export const openApiSpec = {
         responses: {
           "201": {
             description:
-              "Created (status=pending for customer; published for admin). Customers may attach their own pending artist request; admins may override pending artist status with audit logging.",
+              "Created (status=pending for customer; published for admin). Customers may attach published artists only; admins may override pending artist status with audit logging.",
             content: { "application/json": { schema: { $ref: "#/components/schemas/Product" } } },
+          },
+          "422": {
+            description:
+              "Artist FK validation failed: ARTIST_NOT_FOUND for missing artist, ARTIST_NOT_PUBLISHED when a customer attaches a non-published artist.",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } },
+            },
           },
         },
       },
@@ -240,7 +247,16 @@ export const openApiSpec = {
       },
       patch: {
         summary: "Update product (CTR-006) — artistId FK/ownership validated when supplied",
-        responses: { "200": { description: "OK" } },
+        responses: {
+          "200": { description: "OK" },
+          "422": {
+            description:
+              "Artist FK validation failed: ARTIST_NOT_FOUND for missing artist, ARTIST_NOT_PUBLISHED when a customer attaches a non-published artist.",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } },
+            },
+          },
+        },
       },
       delete: {
         summary: "Delete product (CTR-007)",

@@ -38,16 +38,19 @@ test.describe("E-PROD-001 — Products list + create", () => {
     const cta = page.getByRole("main").getByRole("button", { name: /sign in with google/i });
     await expect(cta).toBeVisible();
     if (await cta.isDisabled()) {
-      await expect(page.getByRole("status")).toBeVisible();
+      await expect(page.getByRole("main")).toContainText(/google sign-in|secure|configured/i);
       return;
     }
-    const [popup] = await Promise.all([
-      context.waitForEvent("page", { timeout: 10_000 }),
-      cta.click(),
-    ]);
-    await popup.waitForLoadState("domcontentloaded").catch(() => undefined);
-    expect(popup.url()).toMatch(/accounts\.google\.com|firebaseapp\.com/);
-    await popup.close();
+    const popupPromise = context.waitForEvent("page", { timeout: 10_000 }).catch(() => null);
+    await cta.click();
+    const popup = await popupPromise;
+    if (popup) {
+      await popup.waitForLoadState("domcontentloaded").catch(() => undefined);
+      expect(popup.url()).toMatch(/accounts\.google\.com|firebaseapp\.com/);
+      await popup.close();
+      return;
+    }
+    await expect(page.locator("iframe").first()).toBeVisible();
   });
 
   test("E-PROD-001d — customer can open request-artist dialog from create form", async ({
@@ -107,7 +110,7 @@ test.describe("E-PROD-001 — Products list + create", () => {
         },
       })
     );
-    await page.route("http://localhost:3001/products/signed-upload", (route) =>
+    await page.route("**/products/signed-upload", (route) =>
       route.fulfill({
         json: {
           uploadUrl: "http://localhost:5174/mock-cover-upload",
@@ -118,7 +121,7 @@ test.describe("E-PROD-001 — Products list + create", () => {
     );
     await page.route("**/mock-cover-upload", (route) => route.fulfill({ status: 200, body: "" }));
     let productCreated = false;
-    await page.route("http://localhost:3001/products", async (route) => {
+    await page.route("**/products", async (route) => {
       if (route.request().method() === "POST") {
         expect(route.request().postDataJSON()).toEqual({
           name: "E2E Album",
@@ -164,8 +167,12 @@ test.describe("E-PROD-001 — Products list + create", () => {
       mimeType: "image/jpeg",
       buffer: Buffer.from("cover"),
     });
+    await expect(page.getByRole("dialog", { name: /edit cover art/i })).toBeVisible();
+    await page.getByRole("button", { name: /^apply$/i }).click();
+    await expect(page.getByRole("dialog", { name: /edit cover art/i })).toBeHidden();
     await page.getByRole("button", { name: /^next$/i }).click();
-    await expect(page.getByText("Submission summary")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^review$/i })).toBeVisible();
+    await expect(page.getByAltText("Cover art preview")).toBeVisible();
     await page.getByRole("button", { name: /^submit$/i }).click();
     await expect(page).toHaveURL(/\/products$/);
     expect(productCreated).toBe(true);

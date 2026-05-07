@@ -23,7 +23,8 @@
     "pendingEmpty": "No pending requests."
   },
   "productBanner": {
-    "bothPending": "Your product will go live once both this artist and the product are approved."
+    "bothPending": "Your product will go live once both this artist and the product are approved.",
+    "pendingBlocked": "Your artist request is pending. You can submit a product after an admin publishes this artist."
   },
   "status": {
     "pending": "Pending",

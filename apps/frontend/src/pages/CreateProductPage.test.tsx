@@ -295,12 +295,10 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     await waitFor(() => expect(document.querySelector('img[src="blob:mock"]')).toBeNull());
   });
 
-  it("U-PROD-004b — request artist dialog creates pending artist then product uses its id", async () => {
+  it("U-PROD-004b — request artist dialog creates pending artist and blocks product submit", async () => {
     apiGetMock.mockResolvedValue({ items: [] });
     uploadCoverArtMock.mockResolvedValue("cover-art/u1/path.jpg");
-    apiPostMock
-      .mockResolvedValueOnce({ id: "artist-new", name: "New Artist", status: "pending" })
-      .mockResolvedValueOnce({ id: "p1" });
+    apiPostMock.mockResolvedValueOnce({ id: "artist-new", name: "New Artist", status: "pending" });
     const user = userEvent.setup();
     renderPage();
     await enterNameAndNext(user, "New Release");
@@ -313,17 +311,12 @@ describe("U-PROD-001..006: CreateProductPage", () => {
     await user.type(requestInput, " Changed");
     await user.click(screen.getByRole("button", { name: /^request$/i }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByText(/both this artist and the product are approved/i)).toBeInTheDocument();
+    expect(screen.getByText(/artist request is pending/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^next$/i }));
-    await uploadCoverAndNext(user);
-    await user.click(screen.getByRole("button", { name: /^submit$/i }));
-    await waitFor(() => expect(screen.getByTestId("list")).toBeInTheDocument());
+    expect(screen.getByRole("alert")).toHaveTextContent(/artist request is pending/i);
     expect(apiPostMock).toHaveBeenNthCalledWith(1, "/artists", { name: "New Artist Changed" });
-    expect(apiPostMock).toHaveBeenNthCalledWith(2, "/products", {
-      name: "New Release",
-      artistId: "artist-new",
-      coverArtPath: "cover-art/u1/path.jpg",
-    });
+    expect(apiPostMock).toHaveBeenCalledTimes(1);
+    expect(uploadCoverArtMock).not.toHaveBeenCalled();
   });
 
   it("U-PROD-003c — submit without selected artist surfaces validation error", async () => {

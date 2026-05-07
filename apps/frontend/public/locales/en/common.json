@@ -7,6 +7,10 @@
     "artists": "Artists",
     "adminQueue": "Approval queue",
     "pendingReview": "{{count}} pending review",
+    "openMenu": "Open navigation menu",
+    "closeMenu": "Close navigation menu",
+    "closeMenuBackdrop": "Close navigation overlay",
+    "mobileMenu": "Mobile navigation",
     "signIn": "Sign in"
   },
   "topbar": {

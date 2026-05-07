@@ -28,6 +28,21 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /artists/{artistId} {
+      // Read:
+      // - Anyone signed-in can read PUBLISHED artists
+      // - Owners can always read their own artist requests
+      // - Admins can read everything, including moderation queues
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.status == 'published')
+        || (signedIn() && isOwner(resource.data.ownerUid));
+
+      // Create / update / delete go through the backend (Admin SDK bypasses
+      // these rules). Block direct client writes so validation, uniqueness,
+      // moderation transitions, and FK delete checks remain centralized.
+      allow create, update, delete: if false;
+    }
+
     // Default deny on every other collection
     match /{document=**} {
       allow read, write: if false;

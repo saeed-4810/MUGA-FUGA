@@ -8,17 +8,17 @@ const config: Config = {
       colors: {
         // Brand
         brand: {
-          50: "#f3f1ff",
-          100: "#e9e5ff",
-          200: "#d4ccff",
-          300: "#b9aaff",
-          400: "#9a83ff",
-          500: "#7c5cff",
-          600: "#6a45f0",
-          700: "#5c37cf",
-          800: "#4b2da6",
-          900: "#3d2787",
-          950: "#241351",
+          50: "#f2f7ff",
+          100: "#dce9fb",
+          200: "#b9d1f4",
+          300: "#8dabec",
+          400: "#5d7fdb",
+          500: "#355aa4",
+          600: "#202e54",
+          700: "#192747",
+          800: "#14203a",
+          900: "#10182c",
+          950: "#0a1020",
         },
         // Surfaces (token names — value depends on dark/light)
         surface: {

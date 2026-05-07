@@ -1,3 +1,4 @@
+import { Menu, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
@@ -45,7 +46,7 @@ const PendingBadge = ({ count }: { count: number }) => {
   if (count <= 0) return null;
   return (
     <span
-      className="bg-brand-500 ml-auto rounded-full px-2 py-0.5 text-xs font-bold text-white"
+      className="bg-secondary text-secondary-foreground ml-auto rounded-full px-2 py-0.5 text-xs font-bold"
       aria-label={t("nav.pendingReview", { count })}
     >
       {count}
@@ -53,54 +54,123 @@ const PendingBadge = ({ count }: { count: number }) => {
   );
 };
 
-const Sidebar = () => {
+const NAV_ITEM_BASE =
+  "flex min-h-11 items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-colors";
+const NAV_ITEM_ACTIVE = "bg-accent text-accent-foreground shadow-glow";
+const NAV_ITEM_IDLE = "text-muted-foreground hover:bg-muted hover:text-foreground";
+
+const BrandMark = () => (
+  <h1 className="px-2">
+    <img alt="FUGA" className="h-8 w-auto brightness-0 dark:brightness-100" src="/fuga-logo.svg" />
+  </h1>
+);
+
+const navItemClass = ({ isActive }: { isActive: boolean }) =>
+  `${NAV_ITEM_BASE} ${isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE}`;
+
+const nestedNavItemClass = ({ isActive }: { isActive: boolean }) =>
+  `${NAV_ITEM_BASE} ml-5 min-h-10 pl-4 ${isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE}`;
+
+const NavigationLinks = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { t } = useTranslation("common");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const pendingCount = usePendingReviewCount(isAdmin);
-  const navItem = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-      isActive
-        ? "bg-brand-500/15 text-brand-700 dark:text-brand-300"
-        : "text-ink-muted hover:bg-surface-muted"
-    }`;
   return (
-    <aside className="border-line bg-surface hidden w-60 shrink-0 border-r px-3 py-4 lg:block">
-      <div className="mb-6 px-2 text-xl font-bold tracking-tight">MUGA</div>
-      <nav className="flex flex-col gap-1" aria-label={t("nav.aria")}>
-        <NavLink to="/" end className={navItem}>
-          {t("nav.dashboard")}
-        </NavLink>
-        <NavLink to="/products" className={navItem}>
+    <nav className="flex flex-col gap-1.5" aria-label={t("nav.aria")}>
+      <NavLink to="/" end className={navItemClass} onClick={onNavigate}>
+        {t("nav.dashboard")}
+      </NavLink>
+      <div className="space-y-1" role="group" aria-label={t("nav.products")}>
+        <NavLink to="/products" className={navItemClass} onClick={onNavigate}>
           {t("nav.products")}
         </NavLink>
-        <NavLink to="/products/new" className={navItem}>
+        <NavLink to="/products/new" className={nestedNavItemClass} onClick={onNavigate}>
           {t("nav.createProduct")}
         </NavLink>
-        {isAdmin && (
-          <>
-            <NavLink to="/admin/artists" className={navItem}>
-              {t("nav.artists")}
-            </NavLink>
-            <NavLink to="/admin/queue" className={navItem}>
-              <span>{t("nav.adminQueue")}</span>
-              <PendingBadge count={pendingCount} />
-            </NavLink>
-          </>
-        )}
-      </nav>
-    </aside>
+      </div>
+      {isAdmin && (
+        <>
+          <NavLink to="/admin/artists" className={navItemClass} onClick={onNavigate}>
+            {t("nav.artists")}
+          </NavLink>
+          <NavLink to="/admin/queue" className={navItemClass} onClick={onNavigate}>
+            <span>{t("nav.adminQueue")}</span>
+            <PendingBadge count={pendingCount} />
+          </NavLink>
+        </>
+      )}
+    </nav>
   );
 };
 
-const TopBar = () => {
+const Sidebar = () => (
+  <aside className="border-border hidden w-64 shrink-0 border-r bg-transparent px-4 py-5 lg:block">
+    <div className="mb-8">
+      <BrandMark />
+    </div>
+    <NavigationLinks />
+  </aside>
+);
+
+const MobileNavigation = ({ onClose, open }: { onClose: () => void; open: boolean }) => {
+  const { t } = useTranslation("common");
+  if (!open) return null;
+  return (
+    <div
+      aria-label={t("nav.mobileMenu")}
+      aria-modal="true"
+      className="fixed inset-0 z-50 lg:hidden"
+      role="dialog"
+    >
+      <button
+        aria-label={t("nav.closeMenuBackdrop")}
+        className="bg-background/70 absolute inset-0 backdrop-blur-sm"
+        onClick={onClose}
+        type="button"
+      />
+      <aside className="animate-fade-in border-border bg-background/95 relative flex h-full w-[min(20rem,86vw)] flex-col gap-8 border-r px-4 py-5 shadow-2xl backdrop-blur-md">
+        <div className="flex items-center justify-between gap-4">
+          <BrandMark />
+          <button
+            aria-label={t("nav.closeMenu")}
+            className="text-foreground hover:bg-muted grid min-h-11 min-w-11 place-items-center rounded-2xl"
+            onClick={onClose}
+            type="button"
+          >
+            <X aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
+        <NavigationLinks onNavigate={onClose} />
+      </aside>
+    </div>
+  );
+};
+
+const TopBar = ({ onOpenMenu }: { onOpenMenu: () => void }) => {
   const { t } = useTranslation("common");
   const location = useLocation();
   return (
-    <header className="border-line bg-surface/80 flex h-14 items-center justify-between border-b px-4 backdrop-blur-md">
-      <div className="font-bold lg:hidden">MUGA</div>
-      <div className="text-ink-muted hidden text-sm lg:block" aria-live="polite">
-        {t("topbar.path", { path: location.pathname })}
+    <header className="border-border bg-background/85 sticky top-0 z-40 flex min-h-16 items-center justify-between border-b px-3 backdrop-blur-md sm:px-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          aria-label={t("nav.openMenu")}
+          className="bg-primary text-primary-foreground shadow-soft hover:bg-primary/90 grid min-h-11 min-w-11 place-items-center rounded-2xl transition-colors lg:hidden"
+          onClick={onOpenMenu}
+          type="button"
+        >
+          <Menu aria-hidden="true" className="h-5 w-5" />
+        </button>
+        <div className="min-w-0">
+          <img
+            alt="FUGA"
+            className="h-5 w-auto brightness-0 lg:hidden dark:brightness-100"
+            src="/fuga-logo.svg"
+          />
+          <div className="text-muted-foreground hidden text-sm lg:block" aria-live="polite">
+            {t("topbar.path", { path: location.pathname })}
+          </div>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <LocaleSwitcher />
@@ -111,17 +181,21 @@ const TopBar = () => {
   );
 };
 
-const ShellInner = () => (
-  <div className="bg-surface text-ink flex min-h-screen">
-    <Sidebar />
-    <div className="flex flex-1 flex-col">
-      <TopBar />
-      <main className="animate-fade-in flex-1 px-4 py-6 lg:px-8">
-        <Outlet />
-      </main>
+const ShellInner = () => {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  return (
+    <div className="bg-background text-foreground flex min-h-screen">
+      <Sidebar />
+      <MobileNavigation onClose={() => setMobileNavOpen(false)} open={mobileNavOpen} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar onOpenMenu={() => setMobileNavOpen(true)} />
+        <main className="animate-fade-in flex-1 px-4 py-6 lg:px-8">
+          <Outlet />
+        </main>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 /**
  * `AppProviders` — root context wrapper used by every layout (chrome and

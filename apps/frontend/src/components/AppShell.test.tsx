@@ -2,6 +2,7 @@
  * U-APP-SHELL-001..004 — shell nav + pending review badge.
  */
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,6 +40,8 @@ const renderShell = (initialPath = "/admin/queue") =>
       <Routes>
         <Route path="/" element={<AppShell />}>
           <Route index element={<div>home</div>} />
+          <Route path="products" element={<div>products</div>} />
+          <Route path="products/new" element={<div>new product</div>} />
           <Route path="admin/queue" element={<div>queue</div>} />
           <Route path="admin/artists" element={<div>artists</div>} />
         </Route>
@@ -99,8 +102,17 @@ describe("U-APP-SHELL-001..004: AppShell", () => {
     useAuthMock.mockReturnValue({ user: null });
     renderShell("/admin/artists");
     expect(screen.getByText("/admin/artists")).toBeInTheDocument();
+    expect(screen.getAllByAltText("FUGA").length).toBeGreaterThan(0);
     expect(screen.getByTestId("locale-switcher")).toBeInTheDocument();
     expect(screen.getByTestId("theme-toggle")).toBeInTheDocument();
+  });
+
+  it("U-APP-SHELL-004b — nests create product under products in primary nav", () => {
+    useAuthMock.mockReturnValue({ user: { uid: "c", email: "c@example.com", role: "customer" } });
+    renderShell("/products/new");
+    const productsGroup = screen.getByRole("group", { name: /products/i });
+    expect(productsGroup).toContainElement(screen.getByRole("link", { name: /^products$/i }));
+    expect(productsGroup).toContainElement(screen.getByRole("link", { name: /create product/i }));
   });
 
   it("U-APP-SHELL-005 — AuthLayout renders the outlet without sidebar, topbar, or pending poll", () => {
@@ -116,5 +128,17 @@ describe("U-APP-SHELL-001..004: AppShell", () => {
     expect(screen.queryByTestId("theme-toggle")).toBeNull();
     // Pending-review API must not be called pre-auth
     expect(apiGetMock).not.toHaveBeenCalled();
+  });
+
+  it("U-APP-SHELL-006 — mobile menu opens and closes the navigation drawer", async () => {
+    useAuthMock.mockReturnValue({ user: { uid: "c", email: "c@example.com", role: "customer" } });
+    const user = userEvent.setup();
+    renderShell("/");
+
+    expect(screen.queryByRole("dialog", { name: /mobile navigation/i })).toBeNull();
+    await user.click(screen.getByRole("button", { name: /open navigation menu/i }));
+    expect(screen.getByRole("dialog", { name: /mobile navigation/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /close navigation menu/i }));
+    expect(screen.queryByRole("dialog", { name: /mobile navigation/i })).toBeNull();
   });
 });

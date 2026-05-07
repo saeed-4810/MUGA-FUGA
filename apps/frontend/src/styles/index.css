@@ -11,14 +11,14 @@
     --card-foreground: 17 18 28;
     --popover: 255 255 255;
     --popover-foreground: 17 18 28;
-    --primary: 106 69 240;
+    --primary: 32 46 84;
     --primary-foreground: 255 255 255;
-    --secondary: 245 245 250;
-    --secondary-foreground: 17 18 28;
+    --secondary: 128 255 128;
+    --secondary-foreground: 32 46 84;
     --muted: 245 245 250;
     --muted-foreground: 79 81 96;
-    --accent: 250 250 253;
-    --accent-foreground: 17 18 28;
+    --accent: 128 255 128;
+    --accent-foreground: 32 46 84;
     --destructive: 220 38 38;
     --destructive-foreground: 255 255 255;
     --border: 226 228 236;
@@ -33,7 +33,7 @@
     --ink-inverted: 255 255 255;
     --line: 226 228 236;
     --line-strong: 198 201 215;
-    --ring: 124 92 255;
+    --ring: 128 255 128;
   }
 
   .dark {
@@ -43,14 +43,14 @@
     --card-foreground: 235 236 244;
     --popover: 18 19 30;
     --popover-foreground: 235 236 244;
-    --primary: 124 92 255;
-    --primary-foreground: 17 18 28;
-    --secondary: 18 19 30;
-    --secondary-foreground: 235 236 244;
+    --primary: 128 255 128;
+    --primary-foreground: 32 46 84;
+    --secondary: 128 255 128;
+    --secondary-foreground: 32 46 84;
     --muted: 18 19 30;
     --muted-foreground: 169 172 190;
-    --accent: 24 25 38;
-    --accent-foreground: 235 236 244;
+    --accent: 128 255 128;
+    --accent-foreground: 32 46 84;
     --destructive: 248 113 113;
     --destructive-foreground: 17 18 28;
     --border: 38 40 56;
@@ -64,7 +64,7 @@
     --ink-inverted: 17 18 28;
     --line: 38 40 56;
     --line-strong: 60 63 84;
-    --ring: 154 131 255;
+    --ring: 128 255 128;
   }
 
   html,
@@ -102,7 +102,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-primary {
-    @apply btn bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400 dark:text-ink-inverted text-white;
+    @apply btn bg-primary text-primary-foreground hover:bg-primary/90;
   }
   .btn-ghost {
     @apply btn text-ink hover:bg-surface-muted bg-transparent;
@@ -111,7 +111,7 @@
     @apply border-line bg-surface shadow-soft rounded-2xl border;
   }
   .input {
-    @apply border-line bg-surface-muted text-ink placeholder:text-ink-subtle focus:border-brand-400 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none;
+    @apply border-line bg-surface-muted text-ink placeholder:text-ink-subtle focus:border-secondary w-full rounded-xl border px-3 py-2 text-sm focus:outline-none;
   }
   .label {
     @apply text-ink-muted mb-1 block text-sm font-medium;

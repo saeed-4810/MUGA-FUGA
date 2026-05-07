@@ -1,19 +1,15 @@
-/* eslint-disable import/order -- known false positive: the import-order rule
-   misclassifies type-only + value imports under alphabetise mode. The block is
-   hand-sorted: external (express, supertest, vitest) → internal, alphabetical
-   by path. @typescript-eslint/consistent-type-imports still enforces correct
-   `import type` usage. */
-import express, { type Request, type Response, type NextFunction } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import request from "supertest";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Env } from "../src/config/env.js";
 import type { Artist } from "../src/domain/artist.js";
 import { AppError } from "../src/domain/errors.js";
-import { ProductSchema, type Product } from "../src/domain/product.js";
+import { type Product, ProductSchema } from "../src/domain/product.js";
 import { errorHandler, notFoundHandler } from "../src/middleware/error.js";
 import { requestIdMiddleware } from "../src/middleware/requestId.js";
-/* eslint-enable import/order */
+// ─── Import after mocks ────────────────────────────────────────────────
+import { productsRouter } from "../src/routes/products.js";
 
 /**
  * Tests for the Products CRUD + signed-upload + admin endpoints.
@@ -194,9 +190,6 @@ vi.mock("../src/middleware/auth.js", async (importActual) => {
     },
   };
 });
-
-// ─── Import after mocks ────────────────────────────────────────────────
-import { productsRouter } from "../src/routes/products.js";
 
 const stubEnv: Env = {
   NODE_ENV: "test",
@@ -492,16 +485,16 @@ describe("T-PROD-001..003: POST /products (CTR-003)", () => {
     expect(res.body.details.artistId).toBe("art-pending");
   });
 
-  it("T-PROD-013c — customer create may attach their own pending artist request", async () => {
+  it("T-PROD-013c — customer create rejects their own pending artist request", async () => {
     seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
     const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
       name: "Pending Artist Release",
       artistId: "art-pending",
       coverArtPath: "cover-art/uid-cust/pending",
     });
-    expect(res.status).toBe(201);
-    expect(res.body.status).toBe("pending");
-    expect(res.body.artist).toMatchObject({ id: "art-pending", status: "pending" });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
+    expect(res.body.details.artistId).toBe("art-pending");
   });
 
   it("T-PROD-014 — admin override creates with a pending artist and emits admin_override", async () => {
@@ -773,15 +766,15 @@ describe("T-PROD-008..009: PATCH /products/:id (CTR-006)", () => {
     expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
   });
 
-  it("T-PROD-013d — customer update may attach their own pending artist request", async () => {
+  it("T-PROD-013d — customer update rejects their own pending artist request", async () => {
     seedProduct({ id: "p1", ownerUid: "uid-cust" });
     seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
     const res = await request(buildApp())
       .patch("/products/p1")
       .set("x-test-user", CUSTOMER)
       .send({ artistId: "art-pending" });
-    expect(res.status).toBe(200);
-    expect(res.body.artist).toMatchObject({ id: "art-pending", status: "pending" });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
   });
 });
 

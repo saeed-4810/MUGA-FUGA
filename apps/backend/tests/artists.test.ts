@@ -1,13 +1,15 @@
 /* eslint-disable import/order -- mirror products.test.ts grouping */
-import express, { type Request, type Response, type NextFunction } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import request from "supertest";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Env } from "../src/config/env.js";
 import { AppError } from "../src/domain/errors.js";
-import { ArtistSchema, type Artist } from "../src/domain/artist.js";
+import { type Artist, ArtistSchema } from "../src/domain/artist.js";
 import { errorHandler, notFoundHandler } from "../src/middleware/error.js";
 import { requestIdMiddleware } from "../src/middleware/requestId.js";
+// ─── Import after mocks ────────────────────────────────────────────────
+import { artistsRouter } from "../src/routes/artists.js";
 /* eslint-enable import/order */
 
 /**
@@ -205,9 +207,6 @@ vi.mock("../src/middleware/auth.js", async (importActual) => {
     },
   };
 });
-
-// ─── Import after mocks ────────────────────────────────────────────────
-import { artistsRouter } from "../src/routes/artists.js";
 
 const stubEnv: Env = {
   NODE_ENV: "test",
@@ -884,6 +883,7 @@ describe("T-ARTIST-031..036: POST /artists/:id/approve|reject (CTR-106, CTR-107)
 
   it("T-ARTIST-031 — admin approves a pending artist → status=published, approvedAt+By set", async () => {
     seedArtist({ id: "a1", status: "pending", ownerUid: "uid-cust" });
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const res = await request(buildApp())
       .post("/artists/a1/approve")
       .set("x-test-user", ADMIN)
@@ -894,6 +894,18 @@ describe("T-ARTIST-031..036: POST /artists/:id/approve|reject (CTR-106, CTR-107)
     expect(typeof res.body.approvedAt).toBe("string");
     // updatedAt is bumped
     expect(typeof res.body.updatedAt).toBe("string");
+    const fired = info.mock.calls.find((c) => {
+      const obj = c[0] as Record<string, unknown> | undefined;
+      return (
+        obj &&
+        (obj as { alert?: { kind?: string }; artistId?: string; action?: string }).alert?.kind ===
+          "admin_action" &&
+        (obj as { artistId?: string; action?: string }).artistId === "a1" &&
+        (obj as { action?: string }).action === "approve"
+      );
+    });
+    expect(fired).toBeTruthy();
+    info.mockRestore();
   });
 
   it("T-ARTIST-031b — customer cannot approve → 403", async () => {
@@ -933,6 +945,7 @@ describe("T-ARTIST-031..036: POST /artists/:id/approve|reject (CTR-106, CTR-107)
 
   it("T-ARTIST-034 — admin rejects with reason → status=rejected, rejectionReason stored", async () => {
     seedArtist({ id: "a1", status: "pending" });
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const res = await request(buildApp())
       .post("/artists/a1/reject")
       .set("x-test-user", ADMIN)
@@ -940,6 +953,19 @@ describe("T-ARTIST-031..036: POST /artists/:id/approve|reject (CTR-106, CTR-107)
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("rejected");
     expect(res.body.rejectionReason).toBe("Name conflicts with existing trademark");
+    const fired = info.mock.calls.find((c) => {
+      const obj = c[0] as Record<string, unknown> | undefined;
+      return (
+        obj &&
+        (obj as { alert?: { kind?: string }; artistId?: string; action?: string }).alert?.kind ===
+          "admin_action" &&
+        (obj as { artistId?: string; action?: string }).artistId === "a1" &&
+        (obj as { action?: string; reason?: string }).action === "reject" &&
+        (obj as { reason?: string }).reason === "Name conflicts with existing trademark"
+      );
+    });
+    expect(fired).toBeTruthy();
+    info.mockRestore();
   });
 
   it("T-ARTIST-034b — default reason applied when body omits reason", async () => {

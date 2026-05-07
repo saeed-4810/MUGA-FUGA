@@ -229,7 +229,7 @@ const validateArtistForWrite = async (
 ): Promise<Artist> => {
   const artist = await loadArtist(env, artistId);
   if (artist.status === "published") return artist;
-  if (artist.status === "pending" && (actor.role === "admin" || artist.ownerUid === actor.uid)) {
+  if (artist.status === "pending" && actor.role === "admin") {
     return artist;
   }
   throw Errors.artistNotPublished(artistId);

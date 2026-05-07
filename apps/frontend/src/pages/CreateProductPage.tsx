@@ -57,8 +57,9 @@ const CreateProductContent = () => {
 
   const isDetailsComplete = name.trim().length > 0;
   const isArtistComplete = Boolean(artist);
+  const isArtistPublished = artist?.status === "published";
   const isCoverComplete = Boolean(file);
-  const isReadyToSubmit = isDetailsComplete && isArtistComplete && isCoverComplete;
+  const isReadyToSubmit = isDetailsComplete && isArtistPublished && isCoverComplete;
   const activeStepIndex = stepOrder.indexOf(activeStep);
 
   const steps = [
@@ -141,6 +142,10 @@ const CreateProductContent = () => {
     }
     if (step === "artist" && !isArtistComplete) {
       setError(t("products:create.errors.artistRequired"));
+      return false;
+    }
+    if (step === "artist" && !isArtistPublished) {
+      setError(t("artists:productBanner.pendingBlocked"));
       return false;
     }
     if (step === "cover" && !isCoverComplete) {
@@ -260,7 +265,7 @@ const CreateProductContent = () => {
                   />
                   {requestedPending && (
                     <StatusBanner tone="warning">
-                      {t("artists:productBanner.bothPending")}
+                      {t("artists:productBanner.pendingBlocked")}
                     </StatusBanner>
                   )}
                 </div>

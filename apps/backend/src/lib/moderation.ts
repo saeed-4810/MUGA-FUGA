@@ -105,7 +105,7 @@ export const buildApproveHandler =
         kind: config.alertKind,
         severity: "info",
         message: `admin approved ${config.resourceLabel} ${id}`,
-        context: { [`${config.resourceLabel}Id`]: id, adminUid: req.user!.uid },
+        context: { [`${config.resourceLabel}Id`]: id, adminUid: req.user!.uid, action: "approve" },
       });
       res.json(updated);
     } catch (err) {
@@ -155,6 +155,7 @@ export const buildRejectHandler =
         context: {
           [`${config.resourceLabel}Id`]: id,
           adminUid: req.user!.uid,
+          action: "reject",
           reason,
         },
       });

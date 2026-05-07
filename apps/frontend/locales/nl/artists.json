@@ -23,7 +23,8 @@
     "pendingEmpty": "Geen openstaande aanvragen."
   },
   "productBanner": {
-    "bothPending": "Je product komt online zodra zowel deze artiest als het product zijn goedgekeurd."
+    "bothPending": "Je product komt online zodra zowel deze artiest als het product zijn goedgekeurd.",
+    "pendingBlocked": "Je artiestaanvraag wacht op beoordeling. Je kunt een product indienen nadat een beheerder deze artiest publiceert."
   },
   "status": {
     "pending": "In afwachting",
