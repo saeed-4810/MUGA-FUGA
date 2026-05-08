@@ -63,6 +63,25 @@ docker build -f apps/frontend/Dockerfile -t muga-frontend .
 
 ---
 
+## Documentation
+
+Start here if you are reviewing the project:
+
+- [Application docs](./docs/README.md) — reading order for the docs in this repo
+- [Requirement coverage](./docs/FEATURE_REQUIREMENTS.md) — assignment requirements mapped to implementation areas
+- [Architecture](./docs/ARCHITECTURE.md) — how the frontend, backend, Firebase, and Cloud Run pieces fit
+- [Auth and RBAC](./docs/AUTH_AND_RBAC.md) — Google sign-in, custom claims, and admin/customer rules
+- [User flows](./docs/USER_FLOWS.md) — customer and admin journeys
+- [API contracts](./docs/api/api-spec.md) — REST endpoints and error conventions
+- [Database schema](./docs/api/database-schema.md) — Firestore collections, indexes, and rules summary
+- [Deployment and infrastructure](./docs/FIREBASE_INFRA.md) — Firebase, Cloud Run, Hosting, monitoring, and environments
+- [Storage and buckets](./docs/STORAGE_AND_BUCKETS.md) — cover-art buckets, signed uploads, and CORS
+- [CI/CD](./docs/CI_CD.md) — checks, previews, staging deploys, and production tags
+- [Test scenarios](./docs/TEST_SCENARIOS.md) and [QA coverage matrix](./docs/qa/coverage-matrix.md)
+- [ADR index](./docs/adr/README.md) — short notes on the main technical decisions
+
+---
+
 ## Structure
 
 ```
@@ -137,7 +156,7 @@ Image bytes never touch the Express server → no payload/memory pressure, valid
 
 ### Alerting
 
-Every backend alert is a Pino log line with `alert.kind` + `alert.severity` fields. Cloud Monitoring log-based metrics match on `alert.kind`; alert policies defined as YAML in `.github/monitoring/`. `page`-severity alerts also hit Slack + PagerDuty synchronously. See the OpenAPI spec at `/api/docs` after deploy, and the alerting runbook in-repo.
+Every backend alert is a Pino log line with `alert.kind` + `alert.severity` fields. Cloud Monitoring log-based metrics match on `alert.kind`; alert policies are defined as YAML in `.github/monitoring/`. See the OpenAPI spec at `/api/docs` after deploy and the [alerting runbook](./docs/api/alerting-runbook.md) for the operational notes.
 
 ### Deployment
 
