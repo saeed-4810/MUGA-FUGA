@@ -132,9 +132,15 @@ describe("U-THEME-001..004: theme provider", () => {
       await waitFor(() => expect(document.documentElement.classList.contains("dark")).toBe(true));
 
       mq.matches = false;
-      if (listener) (listener as () => void)();
+      act(() => {
+        if (listener) (listener as () => void)();
+      });
+      expect(screen.getByTestId("resolved").textContent).toBe("light");
       mq.matches = true;
-      if (listener) (listener as () => void)();
+      act(() => {
+        if (listener) (listener as () => void)();
+      });
+      expect(screen.getByTestId("resolved").textContent).toBe("dark");
     } finally {
       window.matchMedia = original;
     }

@@ -96,7 +96,7 @@ export const ThemeProvider = ({
     const handler = () => setResolved(mq.matches ? "dark" : "light");
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
-  }, [theme]);
+  }, [ready, theme]);
 
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
