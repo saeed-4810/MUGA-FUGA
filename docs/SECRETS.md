@@ -67,7 +67,7 @@ env vars; they are never written to the image.
 | Field          | Value                                                                                                     |
 | -------------- | --------------------------------------------------------------------------------------------------------- |
 | Scope          | staging + production                                                                                      |
-| Where used     | Frontend build (`VITE_SENTRY_DSN`, baked into bundle)                                                     |
+| Where used     | Frontend build (`NEXT_PUBLIC_SENTRY_DSN`, baked into bundle)                                              |
 | How to obtain  | https://sentry.io → Settings → Projects → `muga-frontend` → Client Keys (DSN)                             |
 | How to set     | `echo -n "<dsn>" \| gcloud secrets versions add sentry-dsn-frontend --data-file=- --project=muga-staging` |
 | Rotation       | Generate new DSN in Sentry UI, add new version, redeploy                                                  |
@@ -113,7 +113,7 @@ env vars; they are never written to the image.
 | Field            | Value                                                                                                                                                                                                                        |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Scope            | staging + production                                                                                                                                                                                                         |
-| Where used       | Frontend bundle as `VITE_FIREBASE_API_KEY`                                                                                                                                                                                   |
+| Where used       | Frontend bundle as `NEXT_PUBLIC_FIREBASE_API_KEY`                                                                                                                                                                            |
 | How to obtain    | Already provisioned: `firebase apps:sdkconfig WEB <appId> --project=muga-staging`                                                                                                                                            |
 | Staging value    | `AIzaSyDXT-A5PCyAW39kK8LLNWeUKEaGeEWlrio` (also baked into `deploy-staging.yml`)                                                                                                                                             |
 | Production value | `AIzaSyA83pvqqaro-AbDGx-8eK0IVihJov9u1kI` (also baked into `deploy-production.yml`)                                                                                                                                          |
@@ -122,13 +122,13 @@ env vars; they are never written to the image.
 
 ### `firebase-app-id`
 
-| Field            | Value                                       |
-| ---------------- | ------------------------------------------- |
-| Scope            | staging + production                        |
-| Where used       | Frontend bundle as `VITE_FIREBASE_APP_ID`   |
-| Staging value    | `1:438419642765:web:64ee9c4956469a129945c4` |
-| Production value | `1:524228723694:web:f73b069f91784933d684ff` |
-| Classification   | Public (app identifier)                     |
+| Field            | Value                                            |
+| ---------------- | ------------------------------------------------ |
+| Scope            | staging + production                             |
+| Where used       | Frontend bundle as `NEXT_PUBLIC_FIREBASE_APP_ID` |
+| Staging value    | `1:438419642765:web:64ee9c4956469a129945c4`      |
+| Production value | `1:524228723694:web:f73b069f91784933d684ff`      |
+| Classification   | Public (app identifier)                          |
 
 ---
 
@@ -200,14 +200,15 @@ https://firebase.google.com/docs/projects/api-keys
 4. Fill `apps/frontend/.env.local`:
 
    ```bash
-   VITE_API_URL=http://localhost:3001
-   VITE_FIREBASE_API_KEY=AIzaSyDXT-A5PCyAW39kK8LLNWeUKEaGeEWlrio
-   VITE_FIREBASE_AUTH_DOMAIN=muga-staging.firebaseapp.com
-   VITE_FIREBASE_PROJECT_ID=muga-staging
-   VITE_FIREBASE_APP_ID=1:438419642765:web:64ee9c4956469a129945c4
-   VITE_FIREBASE_STORAGE_BUCKET=muga-staging-cover-art
-   VITE_SENTRY_DSN=$(gcloud secrets versions access latest --secret=sentry-dsn-frontend --project=muga-staging)
-   VITE_SENTRY_ENVIRONMENT=development
+     API_URL=http://localhost:3001
+     NEXT_PUBLIC_API_URL=http://localhost:3001
+    NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDXT-A5PCyAW39kK8LLNWeUKEaGeEWlrio
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=muga-staging.firebaseapp.com
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID=muga-staging
+    NEXT_PUBLIC_FIREBASE_APP_ID=1:438419642765:web:64ee9c4956469a129945c4
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=muga-staging-cover-art
+    NEXT_PUBLIC_SENTRY_DSN=$(gcloud secrets versions access latest --secret=sentry-dsn-frontend --project=muga-staging)
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT=development
    ```
 
 5. Run:

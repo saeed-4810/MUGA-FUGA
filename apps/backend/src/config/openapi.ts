@@ -1,8 +1,3 @@
-/**
- * MUGA OpenAPI 3.1 spec.
- * Hand-curated to keep zero runtime overhead. Mirrors `docs/api/api-spec.md`
- * (CTR-001 .. CTR-009 for products, CTR-100 .. CTR-107 for artists).
- */
 export const openApiSpec = {
   openapi: "3.1.0",
   info: {

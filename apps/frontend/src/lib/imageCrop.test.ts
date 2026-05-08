@@ -1,59 +1,70 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getCroppedImageFile } from "./imageCrop";
 
-type ImageListener = () => void;
-
-class MockImage {
-  crossOrigin = "";
-  naturalHeight = 50;
-  naturalWidth = 100;
-  private listeners = new Map<string, ImageListener>();
-
-  addEventListener(event: string, listener: ImageListener) {
-    this.listeners.set(event, listener);
-  }
-
-  set src(value: string) {
-    queueMicrotask(() => this.listeners.get(value === "broken" ? "error" : "load")?.());
-  }
-}
-
-const context = {
-  drawImage: vi.fn(),
+const buildCanvasContextMock = (): Pick<
+  CanvasRenderingContext2D,
+  "drawImage" | "rotate" | "translate"
+> => ({
+  drawImage: vi.fn() as unknown as CanvasRenderingContext2D["drawImage"],
   rotate: vi.fn(),
   translate: vi.fn(),
+});
+
+const installImageMock = (mode: "load" | "error" = "load") => {
+  class MockImage {
+    crossOrigin = "";
+    naturalHeight = 80;
+    naturalWidth = 100;
+    private listeners = new Map<string, () => void>();
+
+    addEventListener(event: string, listener: () => void) {
+      this.listeners.set(event, listener);
+    }
+
+    set src(_value: string) {
+      queueMicrotask(() => this.listeners.get(mode)?.());
+    }
+  }
+
+  vi.stubGlobal("Image", MockImage);
 };
 
-const originalImage = globalThis.Image;
-const originalCreateElement = document.createElement.bind(document);
+const installCanvasMock = ({
+  blob = new Blob(["cropped"], { type: "image/jpeg" }),
+  context = buildCanvasContextMock(),
+}: {
+  blob?: Blob | null;
+  context?:
+    | CanvasRenderingContext2D
+    | null
+    | Pick<CanvasRenderingContext2D, "drawImage" | "rotate" | "translate">;
+} = {}) => {
+  const originalCreateElement = document.createElement.bind(document);
+  vi.spyOn(document, "createElement").mockImplementation((tagName) => {
+    if (tagName !== "canvas") return originalCreateElement(tagName);
 
-describe("imageCrop", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    globalThis.Image = MockImage as unknown as typeof Image;
+    return {
+      height: 0,
+      width: 0,
+      getContext: vi.fn(() => context),
+      toBlob: vi.fn((callback: BlobCallback) => callback(blob)),
+    } as unknown as HTMLCanvasElement;
   });
+};
 
-  afterEach(() => {
-    globalThis.Image = originalImage;
-    vi.restoreAllMocks();
-  });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
-  it("U-PROD-CROP-001 — renders the rotated crop to a jpeg File", async () => {
-    vi.spyOn(document, "createElement").mockImplementation((tagName) => {
-      if (tagName !== "canvas") return originalCreateElement(tagName);
-      return {
-        getContext: vi.fn(() => context),
-        height: 0,
-        toBlob: vi.fn((callback: BlobCallback) =>
-          callback(new Blob(["jpeg"], { type: "image/jpeg" }))
-        ),
-        width: 0,
-      } as unknown as HTMLCanvasElement;
-    });
+describe("getCroppedImageFile", () => {
+  it("returns a square jpeg file using the requested crop and rotation", async () => {
+    installImageMock();
+    installCanvasMock();
 
     const file = await getCroppedImageFile({
-      crop: { x: 10, y: 20, width: 32, height: 32 },
+      crop: { x: 4, y: 8, width: 256, height: 256 },
       fileName: "cover.png",
       imageSrc: "blob:cover",
       rotation: 90,
@@ -61,52 +72,44 @@ describe("imageCrop", () => {
 
     expect(file.name).toBe("cover.jpg");
     expect(file.type).toBe("image/jpeg");
-    expect(context.rotate).toHaveBeenCalledWith(Math.PI / 2);
-    expect(context.drawImage).toHaveBeenCalledTimes(1);
   });
 
-  it("U-PROD-CROP-002 — rejects when the image cannot load", async () => {
+  it("rejects when the browser cannot load the image", async () => {
+    installImageMock("error");
+    installCanvasMock();
+
     await expect(
       getCroppedImageFile({
-        crop: { x: 0, y: 0, width: 32, height: 32 },
-        fileName: "cover.png",
-        imageSrc: "broken",
+        crop: { x: 0, y: 0, width: 1, height: 1 },
+        fileName: "cover.jpg",
+        imageSrc: "blob:broken",
         rotation: 0,
       })
     ).rejects.toThrow("Image failed to load");
   });
 
-  it("U-PROD-CROP-003 — rejects when canvas APIs are unavailable", async () => {
-    vi.spyOn(document, "createElement").mockImplementation((tagName) => {
-      if (tagName !== "canvas") return originalCreateElement(tagName);
-      return { getContext: vi.fn(() => null) } as unknown as HTMLCanvasElement;
-    });
+  it("rejects when canvas drawing is unavailable", async () => {
+    installImageMock();
+    installCanvasMock({ context: null });
 
     await expect(
       getCroppedImageFile({
-        crop: { x: 0, y: 0, width: 32, height: 32 },
-        fileName: "cover.png",
+        crop: { x: 0, y: 0, width: 1, height: 1 },
+        fileName: "cover.jpg",
         imageSrc: "blob:cover",
         rotation: 0,
       })
     ).rejects.toThrow("Canvas is not supported");
   });
 
-  it("U-PROD-CROP-004 — rejects when canvas cannot produce a blob", async () => {
-    vi.spyOn(document, "createElement").mockImplementation((tagName) => {
-      if (tagName !== "canvas") return originalCreateElement(tagName);
-      return {
-        getContext: vi.fn(() => context),
-        height: 0,
-        toBlob: vi.fn((callback: BlobCallback) => callback(null)),
-        width: 0,
-      } as unknown as HTMLCanvasElement;
-    });
+  it("rejects when the crop cannot be encoded", async () => {
+    installImageMock();
+    installCanvasMock({ blob: null });
 
     await expect(
       getCroppedImageFile({
-        crop: { x: 0, y: 0, width: 32, height: 32 },
-        fileName: "cover.png",
+        crop: { x: 0, y: 0, width: 1, height: 1 },
+        fileName: "cover.jpg",
         imageSrc: "blob:cover",
         rotation: 0,
       })

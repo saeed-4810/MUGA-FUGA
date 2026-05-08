@@ -10,8 +10,3 @@ export const AuthUser = z.object({
   emailVerified: z.boolean().optional(),
 });
 export type AuthUser = z.infer<typeof AuthUser>;
-
-// Express Request augmentation lives in `src/types/express.d.ts` using the
-// global `Express.Request` interface (the Express-recommended augmentation
-// point that works without depending on the resolution of
-// `@types/express-serve-static-core`).

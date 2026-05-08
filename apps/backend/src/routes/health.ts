@@ -21,15 +21,10 @@ export const healthRouter = (env?: Env): ExpressRouter => {
     });
   });
 
-  // Deep readiness — only mounted when `env` is provided (i.e. in a real
-  // app build). The shallow `/health` is also exported so unit tests can
-  // mount the router with no env.
   if (env) {
     router.get("/healthz/ready", async (_req, res, next) => {
       const started = Date.now();
       try {
-        // Cheap Firestore ping: one document read on a metadata doc that
-        // does not need to exist (a missing doc is still a successful round-trip).
         await db(env).collection("_meta").doc("ping").get();
         const ms = Date.now() - started;
 

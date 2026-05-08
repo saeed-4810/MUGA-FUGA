@@ -7,29 +7,29 @@ const baseValid = {
   FIREBASE_STORAGE_BUCKET: "muga-staging.appspot.com",
 };
 
-describe("T-ENV-001..003: env validation", () => {
-  it("T-ENV-001 — loads valid environment with defaults", () => {
+describe("loadEnv — environment validation at boot", () => {
+  it("T-ENV-001 — a minimally-valid env loads with sensible defaults", () => {
     const env = loadEnv(baseValid as NodeJS.ProcessEnv);
     expect(env.PORT).toBe(3001);
     expect(env.NODE_ENV).toBe("development");
     expect(env.CORS_ALLOWED_ORIGINS).toEqual(["http://localhost:5173"]);
   });
 
-  it("T-ENV-002 — splits comma-separated CORS origins and trims", () => {
+  it("T-ENV-002 — CORS_ALLOWED_ORIGINS is split on commas and trimmed (so trailing commas don't make a blank entry)", () => {
     const env = loadEnv({
       ...baseValid,
-      CORS_ALLOWED_ORIGINS: "https://a.com, https://b.com ,",
+      CORS_ALLOWED_ORIGINS: "https://muga.app, https://staging.muga.app ,",
     } as NodeJS.ProcessEnv);
-    expect(env.CORS_ALLOWED_ORIGINS).toEqual(["https://a.com", "https://b.com"]);
+    expect(env.CORS_ALLOWED_ORIGINS).toEqual(["https://muga.app", "https://staging.muga.app"]);
   });
 
-  it("T-ENV-003 — rejects missing FIREBASE_PROJECT_ID", () => {
+  it("T-ENV-003 — without FIREBASE_PROJECT_ID we fail loud at boot (we never want to silently fall back)", () => {
     expect(() =>
-      loadEnv({ FIREBASE_STORAGE_BUCKET: "x.appspot.com" } as NodeJS.ProcessEnv)
+      loadEnv({ FIREBASE_STORAGE_BUCKET: "muga-staging.appspot.com" } as NodeJS.ProcessEnv)
     ).toThrowError(/FIREBASE_PROJECT_ID/);
   });
 
-  it("T-ENV-004 — coerces numeric env values", () => {
+  it("T-ENV-004 — string env vars get coerced to numbers where the schema expects them (PORT, SENTRY_TRACES_SAMPLE_RATE)", () => {
     const env = loadEnv({
       ...baseValid,
       PORT: "8080",
@@ -39,11 +39,11 @@ describe("T-ENV-001..003: env validation", () => {
     expect(env.SENTRY_TRACES_SAMPLE_RATE).toBe(0.5);
   });
 
-  it("T-ENV-005 — splits and lowercases initial admin emails", () => {
+  it("T-ENV-005 — INITIAL_ADMIN_EMAILS is split, trimmed, and lowercased so case doesn't bite us", () => {
     const env = loadEnv({
       ...baseValid,
-      INITIAL_ADMIN_EMAILS: " ALICE@MUGA.app, bob@muga.app ",
+      INITIAL_ADMIN_EMAILS: " MARCUS@MUGA.app, founder@muga.app ",
     } as NodeJS.ProcessEnv);
-    expect(env.INITIAL_ADMIN_EMAILS).toEqual(["alice@muga.app", "bob@muga.app"]);
+    expect(env.INITIAL_ADMIN_EMAILS).toEqual(["marcus@muga.app", "founder@muga.app"]);
   });
 });

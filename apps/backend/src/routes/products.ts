@@ -12,7 +12,6 @@ import {
 } from "../domain/product.js";
 import { emitAlert } from "../lib/alerting.js";
 import { db, bucket } from "../lib/firebase.js";
-import { storageMediaUrl } from "../lib/mediaUrl.js";
 import { buildApproveHandler, buildRejectHandler } from "../lib/moderation.js";
 import { SignedUploadInput, mintSignedUpload } from "../lib/signedUpload.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
@@ -20,6 +19,8 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 const COLLECTION = "products";
 const ARTISTS_COLLECTION = "artists";
 const COVER_PREFIX = "cover-art";
+const COVER_READ_URL_TTL_MS = 60 * 60 * 1000;
+const ARTIST_IMAGE_READ_URL_TTL_MS = 60 * 60 * 1000;
 
 type ProductArtist = {
   id: string;
@@ -34,14 +35,12 @@ export const productsRouter = (env: Env): ExpressRouter => {
   const router = Router();
   router.use(requireAuth(env));
 
-  // POST /products/signed-upload — issue a signed URL for direct-to-Storage upload (CTR-002)
   router.post("/signed-upload", async (req, res, next) => {
     try {
       const input = SignedUploadInput.parse(req.body);
       const out = await mintSignedUpload(env, COVER_PREFIX, req.user!.uid, input);
       res.status(201).json(out);
     } catch (err) {
-      // Emit upload-validation failure event for spike alerting (A5)
       void emitAlert(env, {
         kind: "upload_validation_fail",
         severity: "info",
@@ -55,7 +54,6 @@ export const productsRouter = (env: Env): ExpressRouter => {
     }
   });
 
-  // POST /products — create a product (CTR-003)
   router.post("/", async (req, res, next) => {
     try {
       const input = CreateProductInput.parse(req.body);
@@ -86,7 +84,6 @@ export const productsRouter = (env: Env): ExpressRouter => {
     }
   });
 
-  // GET /products — list products (CTR-004)
   router.get("/", async (req, res, next) => {
     try {
       const isAdmin = req.user!.role === "admin";
@@ -99,18 +96,12 @@ export const productsRouter = (env: Env): ExpressRouter => {
       }
       const snap = await q.get();
       const items = snap.docs.map((d) => ProductSchema.parse(d.data()));
-      // MUGA-18 hard-cut: products store `artistId`; list/read dereference the
-      // current artist document so artist renames show up on the next render.
-      // At <=100 products this is acceptable. If observed list p95 exceeds
-      // 500ms, denormalise `{artistName, artistImageUrl}` onto the product and
-      // refresh via a background task.
       res.json({ items: await Promise.all(items.map((p) => toProductResponse(env, p))) });
     } catch (err) {
       next(err);
     }
   });
 
-  // GET /products/:id — read one product (CTR-005)
   router.get("/:id", async (req, res, next) => {
     try {
       const id = req.params["id"]!;
@@ -129,7 +120,6 @@ export const productsRouter = (env: Env): ExpressRouter => {
     }
   });
 
-  // PATCH /products/:id — update product (CTR-006). Owner or admin.
   router.patch("/:id", async (req, res, next) => {
     try {
       const id = req.params["id"]!;
@@ -145,8 +135,6 @@ export const productsRouter = (env: Env): ExpressRouter => {
         input.artistId !== undefined
           ? await validateArtistForWrite(env, input.artistId, req.user!)
           : null;
-      // Strip undefined keys before spreading so partial updates do not
-      // clobber existing required fields with `undefined` (TS + runtime safe).
       const patch: Partial<CreateProductInput> = Object.fromEntries(
         Object.entries(input).filter(([, v]) => v !== undefined)
       );
@@ -165,7 +153,6 @@ export const productsRouter = (env: Env): ExpressRouter => {
     }
   });
 
-  // DELETE /products/:id — delete product (CTR-007). Owner or admin.
   router.delete("/:id", async (req, res, next) => {
     try {
       const id = req.params["id"]!;
@@ -177,11 +164,10 @@ export const productsRouter = (env: Env): ExpressRouter => {
       const isOwner = existing.ownerUid === req.user!.uid;
       if (!isAdmin && !isOwner) throw Errors.forbidden();
       await ref.delete();
-      // Best-effort delete the cover-art object — failure should not block delete
       try {
         await bucket(env).file(existing.coverArtPath).delete({ ignoreNotFound: true });
       } catch {
-        /* swallowed: cover-art removal is best-effort */
+        void 0;
       }
       res.status(204).end();
     } catch (err) {
@@ -189,7 +175,6 @@ export const productsRouter = (env: Env): ExpressRouter => {
     }
   });
 
-  // POST /products/:id/approve — admin-only approval (CTR-008)
   router.post(
     "/:id/approve",
     requireRole("admin"),
@@ -201,7 +186,6 @@ export const productsRouter = (env: Env): ExpressRouter => {
     })
   );
 
-  // POST /products/:id/reject — admin-only rejection (CTR-009)
   router.post(
     "/:id/reject",
     requireRole("admin"),
@@ -214,6 +198,45 @@ export const productsRouter = (env: Env): ExpressRouter => {
   );
 
   return router;
+};
+
+const mintStorageReadUrl = async (
+  env: Env,
+  objectPath: string,
+  ttlMs: number
+): Promise<string | undefined> => {
+  if (env.FIREBASE_STORAGE_EMULATOR_HOST) {
+    const origin = env.FIREBASE_STORAGE_EMULATOR_HOST.startsWith("http")
+      ? env.FIREBASE_STORAGE_EMULATOR_HOST
+      : `http://${env.FIREBASE_STORAGE_EMULATOR_HOST}`;
+    return `${origin}/v0/b/${encodeURIComponent(env.FIREBASE_STORAGE_BUCKET)}/o/${encodeURIComponent(objectPath)}?alt=media`;
+  }
+  try {
+    const [url] = await bucket(env)
+      .file(objectPath)
+      .getSignedUrl({
+        version: "v4",
+        action: "read",
+        expires: new Date(Date.now() + ttlMs),
+      });
+    return url;
+  } catch {
+    return undefined;
+  }
+};
+
+const toProductArtist = async (env: Env, artist: Artist): Promise<ProductArtist> => {
+  const imageUrl =
+    artist.imageUrl ??
+    (artist.imageObjectPath
+      ? await mintStorageReadUrl(env, artist.imageObjectPath, ARTIST_IMAGE_READ_URL_TTL_MS)
+      : undefined);
+  return {
+    id: artist.id,
+    name: artist.name,
+    status: artist.status,
+    ...(imageUrl ? { imageUrl } : {}),
+  };
 };
 
 const loadArtist = async (env: Env, artistId: string): Promise<Artist> => {
@@ -229,28 +252,31 @@ const validateArtistForWrite = async (
 ): Promise<Artist> => {
   const artist = await loadArtist(env, artistId);
   if (artist.status === "published") return artist;
-  if (artist.status === "pending" && actor.role === "admin") {
+  if (artist.status === "pending" && (actor.role === "admin" || artist.ownerUid === actor.uid)) {
     return artist;
   }
   throw Errors.artistNotPublished(artistId);
 };
 
-const toProductArtistResponse = (env: Env, artist: Artist): ProductArtist => ({
-  id: artist.id,
-  name: artist.name,
-  status: artist.status,
-  ...(artist.imageUrl !== undefined
-    ? { imageUrl: artist.imageUrl }
-    : artist.imageObjectPath !== undefined
-      ? { imageUrl: storageMediaUrl(env, artist.imageObjectPath) }
-      : {}),
-});
+const mintCoverArtReadUrl = async (env: Env, objectPath: string): Promise<string | undefined> => {
+  return mintStorageReadUrl(env, objectPath, COVER_READ_URL_TTL_MS);
+};
 
-const toProductResponse = async (env: Env, product: Product): Promise<ProductResponse> => ({
-  ...product,
-  coverArtUrl: product.coverArtUrl ?? storageMediaUrl(env, product.coverArtPath),
-  artist: toProductArtistResponse(env, await loadArtist(env, product.artistId)),
-});
+const toProductResponse = async (env: Env, product: Product): Promise<ProductResponse> => {
+  const [artist, generatedCoverArtUrl] = await Promise.all([
+    loadArtist(env, product.artistId),
+    mintCoverArtReadUrl(env, product.coverArtPath),
+  ]);
+  const [coverArtUrl, productArtist] = await Promise.all([
+    Promise.resolve(product.coverArtUrl ?? generatedCoverArtUrl),
+    toProductArtist(env, artist),
+  ]);
+  return {
+    ...product,
+    ...(coverArtUrl ? { coverArtUrl } : {}),
+    artist: productArtist,
+  };
+};
 
 const emitAdminOverride = (
   env: Env,

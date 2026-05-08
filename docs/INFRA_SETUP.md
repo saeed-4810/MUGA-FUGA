@@ -321,38 +321,45 @@ https://github.com/saeed-4810/MUGA/settings/branches → Add rule for `main`:
 Firebase Hosting auto-creates `<project>.web.app`. No action needed unless
 you want a custom domain (see §Appendix C).
 
-## Preview channels (per-PR deploys, label-gated)
+## Preview channels and PR E2E (label-gated)
 
-Previews are **opt-in**. A PR only gets a Firebase Hosting preview channel +
-Playwright E2E when it carries the `preview` label. This keeps channel
-usage and CI minutes predictable — most PRs don't need a preview, and
-CI already catches what matters for them.
+Previews are **opt-in**. A PR gets a Firebase Hosting preview channel when it
+carries the `preview` label. Preview Playwright E2E is an additional opt-in:
+add the `e2e` label as well. This keeps channel usage and CI minutes
+predictable — most PRs don't need a preview, and only high-risk PRs need PR
+E2E before merge.
 
-### Creating the `preview` label (one-time)
+### Creating the labels (one-time)
 
 ```bash
 gh label create preview \
   --repo saeed-4810/MUGA \
-  --description "Deploy a Firebase Hosting preview channel + E2E for this PR" \
+  --description "Deploy a Firebase Hosting preview channel for this PR" \
   --color "1d76db"
+
+gh label create e2e \
+  --repo saeed-4810/MUGA \
+  --description "Run Playwright E2E against the PR preview channel" \
+  --color "5319e7"
 ```
 
 Or via UI: https://github.com/saeed-4810/MUGA/labels → **New label** →
-name `preview`, any color.
+name `preview` / `e2e`, any color.
 
 ### How the flow works
 
-1. PR opens → **CI runs** (lint, typecheck, test, build, docker, lighthouse).
+1. PR opens → **CI runs** (lint, typecheck, test, build, docker).
    **No preview** unless the label is present.
 2. Reviewer (or author) clicks **Labels → preview** on the PR.
    `pull_request.labeled` event fires.
 3. `.github/workflows/preview.yml` runs:
    - `wait-for-ci` — blocks until the `build` check on the same SHA is green
    - `preview-deploy` — builds the frontend, deploys to hosting channel `pr-<number>`
-   - `preview-e2e` — Playwright against the actual preview URL (real network, real staging backend)
+   - `preview-e2e` — runs only when the PR also has the `e2e` label
    - `preview-comment` — posts / updates the PR comment with URL + E2E result
 4. New push to the PR → re-runs steps 3.1–3.4 (concurrency group cancels previous run).
 5. Label removed, or PR closed → `.github/workflows/preview-cleanup.yml` deletes the channel.
+6. Merge to `main` always runs staging E2E after deploy via `deploy-staging.yml`.
 
 ### URLs
 
@@ -474,9 +481,9 @@ If you register `muga.app`:
 
 ```bash
 # 1. In Firebase console → Hosting → Add custom domain → follow DNS steps.
-# 2. Update VITE_API_URL in deploy-*.yml:
-#      VITE_API_URL: https://api.muga.app    (production)
-#      VITE_API_URL: https://api.staging.muga.app  (staging)
+# 2. Update API_URL (server SSR direct backend) and NEXT_PUBLIC_API_URL (browser public API) in deploy-*.yml:
+#      NEXT_PUBLIC_API_URL: https://api.muga.app    (production)
+#      NEXT_PUBLIC_API_URL: https://api.staging.muga.app  (staging)
 # 3. Update CORS_ALLOWED_ORIGINS in deploy-*.yml.
 # 4. Update authorized Auth domains in Firebase Console.
 ```

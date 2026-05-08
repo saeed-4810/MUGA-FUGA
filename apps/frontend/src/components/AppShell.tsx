@@ -1,18 +1,42 @@
-import { Menu, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+"use client";
 
-import { AuthProvider, useAuth } from "../context/AuthContext";
-import { ThemeProvider } from "../context/ThemeContext";
+import { Menu, X } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+
+import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
 
-const usePendingReviewCount = (enabled: boolean) => {
-  const [count, setCount] = useState(0);
+const navItems: Array<{
+  href: string;
+  key: "adminQueue" | "artists" | "createProduct" | "dashboard" | "products";
+  admin?: boolean;
+  badge?: boolean;
+  nested?: boolean;
+}> = [
+  { href: "/", key: "dashboard" },
+  { href: "/products", key: "products" },
+  { href: "/products/new", key: "createProduct", nested: true },
+  { href: "/admin/artists", key: "artists", admin: true },
+  { href: "/admin/queue", key: "adminQueue", admin: true, badge: true },
+];
+
+const NAV_ITEM_BASE =
+  "flex min-h-11 items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-colors";
+const NAV_ITEM_ACTIVE = "bg-accent text-accent-foreground shadow-glow";
+const NAV_ITEM_IDLE = "text-muted-foreground hover:bg-muted hover:text-foreground";
+
+const linkClass = (active: boolean, nested = false) =>
+  `${NAV_ITEM_BASE} ${nested ? "ml-5 min-h-10 pl-4" : ""} ${active ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE}`;
+
+const usePendingReviewCount = (enabled: boolean, initialCount: number) => {
+  const [count, setCount] = useState(initialCount);
 
   const refresh = useCallback(() => {
     if (!enabled) {
@@ -24,8 +48,8 @@ const usePendingReviewCount = (enabled: boolean) => {
       api.get<{ items: unknown[] }>("/artists?status=pending"),
     ])
       .then(([products, artists]) => setCount(products.items.length + artists.items.length))
-      .catch(() => setCount(0));
-  }, [enabled]);
+      .catch(() => setCount(initialCount));
+  }, [enabled, initialCount]);
 
   useEffect(() => {
     refresh();
@@ -41,79 +65,78 @@ const usePendingReviewCount = (enabled: boolean) => {
   return count;
 };
 
+const BrandMark = ({ compact = false }: { compact?: boolean }) => (
+  <h1 className={compact ? "" : "px-2"}>
+    <img
+      alt="FUGA"
+      className={`${compact ? "h-5" : "h-8"} w-auto brightness-0 dark:brightness-100`}
+      src="/fuga-logo.svg"
+    />
+  </h1>
+);
+
 const PendingBadge = ({ count }: { count: number }) => {
   const { t } = useTranslation("common");
   if (count <= 0) return null;
   return (
     <span
-      className="bg-secondary text-secondary-foreground ml-auto rounded-full px-2 py-0.5 text-xs font-bold"
       aria-label={t("nav.pendingReview", { count })}
+      className="bg-secondary text-secondary-foreground ml-auto rounded-full px-2 py-0.5 text-xs font-bold"
     >
       {count}
     </span>
   );
 };
 
-const NAV_ITEM_BASE =
-  "flex min-h-11 items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-colors";
-const NAV_ITEM_ACTIVE = "bg-accent text-accent-foreground shadow-glow";
-const NAV_ITEM_IDLE = "text-muted-foreground hover:bg-muted hover:text-foreground";
-
-const BrandMark = () => (
-  <h1 className="px-2">
-    <img alt="FUGA" className="h-8 w-auto brightness-0 dark:brightness-100" src="/fuga-logo.svg" />
-  </h1>
-);
-
-const navItemClass = ({ isActive }: { isActive: boolean }) =>
-  `${NAV_ITEM_BASE} ${isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE}`;
-
-const nestedNavItemClass = ({ isActive }: { isActive: boolean }) =>
-  `${NAV_ITEM_BASE} ml-5 min-h-10 pl-4 ${isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE}`;
-
-const NavigationLinks = ({ onNavigate }: { onNavigate?: () => void }) => {
+const Navigation = ({
+  onNavigate,
+  pendingReviewCount,
+}: {
+  onNavigate?: () => void;
+  pendingReviewCount: number;
+}) => {
+  const pathname = usePathname();
   const { t } = useTranslation("common");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
-  const pendingCount = usePendingReviewCount(isAdmin);
+  const pendingCount = usePendingReviewCount(isAdmin, pendingReviewCount);
   return (
-    <nav className="flex flex-col gap-1.5" aria-label={t("nav.aria")}>
-      <NavLink to="/" end className={navItemClass} onClick={onNavigate}>
-        {t("nav.dashboard")}
-      </NavLink>
-      <div className="space-y-1" role="group" aria-label={t("nav.products")}>
-        <NavLink to="/products" className={navItemClass} onClick={onNavigate}>
-          {t("nav.products")}
-        </NavLink>
-        <NavLink to="/products/new" className={nestedNavItemClass} onClick={onNavigate}>
-          {t("nav.createProduct")}
-        </NavLink>
-      </div>
-      {isAdmin && (
-        <>
-          <NavLink to="/admin/artists" className={navItemClass} onClick={onNavigate}>
-            {t("nav.artists")}
-          </NavLink>
-          <NavLink to="/admin/queue" className={navItemClass} onClick={onNavigate}>
-            <span>{t("nav.adminQueue")}</span>
-            <PendingBadge count={pendingCount} />
-          </NavLink>
-        </>
-      )}
+    <nav aria-label={t("nav.aria")} className="flex flex-col gap-1.5">
+      {navItems
+        .filter((item) => !item.admin || isAdmin)
+        .map((item) => (
+          <Link
+            key={item.href}
+            className={linkClass(pathname === item.href, item.nested)}
+            href={item.href}
+            {...(onNavigate ? { onClick: onNavigate } : {})}
+          >
+            <span>{t(`nav.${item.key}`)}</span>
+            {item.badge ? <PendingBadge count={pendingCount} /> : null}
+          </Link>
+        ))}
     </nav>
   );
 };
 
-const Sidebar = () => (
+const Sidebar = ({ pendingReviewCount }: { pendingReviewCount: number }) => (
   <aside className="border-border hidden w-64 shrink-0 border-r bg-transparent px-4 py-5 lg:block">
     <div className="mb-8">
       <BrandMark />
     </div>
-    <NavigationLinks />
+    <Navigation pendingReviewCount={pendingReviewCount} />
   </aside>
 );
 
-const MobileNavigation = ({ onClose, open }: { onClose: () => void; open: boolean }) => {
+const MobileNavigation = ({
+  onClose,
+  open,
+  pendingReviewCount,
+}: {
+  onClose: () => void;
+  open: boolean;
+  pendingReviewCount: number;
+}) => {
   const { t } = useTranslation("common");
   if (!open) return null;
   return (
@@ -141,15 +164,15 @@ const MobileNavigation = ({ onClose, open }: { onClose: () => void; open: boolea
             <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </div>
-        <NavigationLinks onNavigate={onClose} />
+        <Navigation onNavigate={onClose} pendingReviewCount={pendingReviewCount} />
       </aside>
     </div>
   );
 };
 
 const TopBar = ({ onOpenMenu }: { onOpenMenu: () => void }) => {
+  const pathname = usePathname();
   const { t } = useTranslation("common");
-  const location = useLocation();
   return (
     <header className="border-border bg-background/85 sticky top-0 z-40 flex min-h-16 items-center justify-between border-b px-3 backdrop-blur-md sm:px-4">
       <div className="flex min-w-0 items-center gap-3">
@@ -162,13 +185,11 @@ const TopBar = ({ onOpenMenu }: { onOpenMenu: () => void }) => {
           <Menu aria-hidden="true" className="h-5 w-5" />
         </button>
         <div className="min-w-0">
-          <img
-            alt="FUGA"
-            className="h-5 w-auto brightness-0 lg:hidden dark:brightness-100"
-            src="/fuga-logo.svg"
-          />
+          <div className="lg:hidden">
+            <BrandMark compact />
+          </div>
           <div className="text-muted-foreground hidden text-sm lg:block" aria-live="polite">
-            {t("topbar.path", { path: location.pathname })}
+            {t("topbar.path", { path: pathname })}
           </div>
         </div>
       </div>
@@ -181,51 +202,27 @@ const TopBar = ({ onOpenMenu }: { onOpenMenu: () => void }) => {
   );
 };
 
-const ShellInner = () => {
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+export const AppShell = ({
+  children,
+  initialPendingReviewCount = 0,
+}: {
+  children: ReactNode;
+  initialPendingReviewCount?: number;
+}) => {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <div className="bg-background text-foreground flex min-h-screen">
-      <Sidebar />
-      <MobileNavigation onClose={() => setMobileNavOpen(false)} open={mobileNavOpen} />
+      <Sidebar pendingReviewCount={initialPendingReviewCount} />
+      <MobileNavigation
+        onClose={() => setMobileOpen(false)}
+        open={mobileOpen}
+        pendingReviewCount={initialPendingReviewCount}
+      />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar onOpenMenu={() => setMobileNavOpen(true)} />
-        <main className="animate-fade-in flex-1 px-4 py-6 lg:px-8">
-          <Outlet />
-        </main>
+        <TopBar onOpenMenu={() => setMobileOpen(true)} />
+        <main className="animate-fade-in flex-1 px-4 py-6 lg:px-8">{children}</main>
       </div>
     </div>
   );
 };
-
-/**
- * `AppProviders` — root context wrapper used by every layout (chrome and
- * chrome-less). Centralises Theme + Auth so authenticated state is shared
- * across `AppShell` (post-auth) and `AuthLayout` (pre-auth) without
- * re-mounting the AuthProvider on navigation between them.
- */
-export const AppProviders = ({ children }: { children: React.ReactNode }) => (
-  <ThemeProvider>
-    <AuthProvider>{children}</AuthProvider>
-  </ThemeProvider>
-);
-
-/**
- * `AuthLayout` — chrome-less layout for pre-auth routes (e.g. `/login`).
- * Mounts the same providers as `AppShell` but renders neither Sidebar nor
- * TopBar, so the login screen is a true overlay rather than embedded inside
- * the post-auth chrome. The fix is at the router/JS layer (separate route
- * branches), not at the CSS layer (no `display:none` tricks).
- */
-export const AuthLayout = () => (
-  <AppProviders>
-    <main className="bg-surface text-ink animate-fade-in min-h-screen">
-      <Outlet />
-    </main>
-  </AppProviders>
-);
-
-export const AppShell = () => (
-  <AppProviders>
-    <ShellInner />
-  </AppProviders>
-);

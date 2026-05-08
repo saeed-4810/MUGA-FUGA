@@ -1,7 +1,3 @@
-/**
- * MUGA error envelope.
- * Every API error response uses this shape.
- */
 export type ErrorEnvelope = {
   code: string;
   message: string;

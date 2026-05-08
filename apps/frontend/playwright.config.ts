@@ -35,7 +35,7 @@ export default defineConfig(
     : {
         ...baseConfig,
         webServer: {
-          command: "pnpm preview",
+          command: "E2E_AUTH_BYPASS=1 pnpm preview",
           port: Number(PORT),
           reuseExistingServer: !process.env["CI"],
           timeout: 60_000,

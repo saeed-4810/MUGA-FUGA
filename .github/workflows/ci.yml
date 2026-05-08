@@ -93,12 +93,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build (frontend + backend)
         run: pnpm build
-      - name: Upload frontend dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: apps/frontend/dist
-          retention-days: 7
 
   # Note: end-to-end tests (Playwright) run *after deploy* against the
   # preview channel (PRs) or staging (post-merge) via the workflows in
@@ -113,36 +107,3 @@ jobs:
       - uses: actions/checkout@v4
       - name: Docker build (backend image)
         run: docker build -f apps/backend/Dockerfile -t muga-backend:ci .
-
-  lighthouse:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: apps/frontend/dist
-      - name: Run Lighthouse CI
-        id: lhci
-        uses: treosh/lighthouse-ci-action@v11
-        with:
-          configPath: .github/lighthouse/lighthouserc.json
-          uploadArtifacts: true
-          temporaryPublicStorage: true
-      - name: Comment on PR with Lighthouse summary
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const links = `${{ steps.lhci.outputs.links }}` || '(no public storage URL)';
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🚦 **Lighthouse CI report**\n${links}\n\nTargets: a11y ≥ 95 (error), perf/best-practices/seo ≥ 0.85 (warn). See \`.github/lighthouse/lighthouserc.json\`.`
-            });

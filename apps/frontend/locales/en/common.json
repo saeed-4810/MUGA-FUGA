@@ -7,11 +7,11 @@
     "artists": "Artists",
     "adminQueue": "Approval queue",
     "pendingReview": "{{count}} pending review",
+    "signIn": "Sign in",
+    "mobileMenu": "Mobile navigation",
     "openMenu": "Open navigation menu",
     "closeMenu": "Close navigation menu",
-    "closeMenuBackdrop": "Close navigation overlay",
-    "mobileMenu": "Mobile navigation",
-    "signIn": "Sign in"
+    "closeMenuBackdrop": "Close navigation backdrop"
   },
   "topbar": {
     "path": "{{path}}"
@@ -25,12 +25,12 @@
     "label": "Language"
   },
   "dialog": {
-    "close": "Close dialog"
+    "close": "Close"
   },
   "dashboard": {
     "welcomeBack": "Welcome back, {{name}}",
     "welcomeAnonymous": "Welcome to MUGA",
-    "tagline": "Catalog albums and singles in one calm, modern workspace.",
+    "tagline": "Dashboard of the MUGA , here there will be cool stuff coming ...",
     "signedOutBody": "Sign in to start creating and browsing music products.",
     "cards": {
       "create": {

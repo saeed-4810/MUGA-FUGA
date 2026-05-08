@@ -21,7 +21,9 @@ const Probe = () => {
 describe("U-THEME-001..004: theme provider", () => {
   beforeEach(() => {
     localStorage.clear();
+    document.cookie = "muga.theme=; Path=/; Max-Age=0";
     document.documentElement.classList.remove("dark");
+    document.documentElement.style.colorScheme = "";
   });
 
   it("U-THEME-001 — defaults to light when no system preference is dark", () => {
@@ -58,10 +60,24 @@ describe("U-THEME-001..004: theme provider", () => {
     );
     await user.click(screen.getByRole("button", { name: "dark" }));
     expect(localStorage.getItem("muga.theme")).toBe("dark");
+    expect(document.cookie).toContain("muga.theme=dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(document.documentElement.style.colorScheme).toBe("dark");
     await user.click(screen.getByRole("button", { name: "light" }));
     expect(localStorage.getItem("muga.theme")).toBe("light");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(document.documentElement.style.colorScheme).toBe("light");
+  });
+
+  it("U-THEME-003b — initialTheme seeds the provider before localStorage exists", () => {
+    render(
+      <ThemeProvider initialTheme="dark">
+        <Probe />
+      </ThemeProvider>
+    );
+    expect(screen.getByTestId("theme").textContent).toBe("dark");
+    expect(screen.getByTestId("resolved").textContent).toBe("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
   it("U-THEME-004 — setTheme(system) honours stored value on next mount", async () => {
@@ -107,7 +123,6 @@ describe("U-THEME-001..004: theme provider", () => {
     const original = window.matchMedia;
     window.matchMedia = (() => mq) as unknown as typeof window.matchMedia;
     try {
-      // Default theme is "system"; resolve() should pick "dark" because matches=true.
       render(
         <ThemeProvider>
           <Probe />
@@ -116,8 +131,6 @@ describe("U-THEME-001..004: theme provider", () => {
       expect(screen.getByTestId("resolved").textContent).toBe("dark");
       expect(document.documentElement.classList.contains("dark")).toBe(true);
 
-      // Trigger the change listener twice to exercise both ternary branches
-      // in the matchMedia subscription handler (line 57 of ThemeContext.tsx).
       mq.matches = false;
       if (listener) (listener as () => void)();
       mq.matches = true;
@@ -128,7 +141,6 @@ describe("U-THEME-001..004: theme provider", () => {
   });
 
   it("U-THEME-006 — readStoredTheme + persist tolerate a throwing localStorage (private mode)", async () => {
-    // Replace localStorage with one that throws on every call.
     const original = globalThis.localStorage;
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
@@ -149,19 +161,41 @@ describe("U-THEME-001..004: theme provider", () => {
     });
     try {
       const user = userEvent.setup();
-      // ThemeProvider must mount despite localStorage throwing on read AND write.
       render(
         <ThemeProvider>
           <Probe />
         </ThemeProvider>
       );
-      // Defaults to "system" because the read failed.
       expect(screen.getByTestId("theme").textContent).toBe("system");
-      // Toggle still functions; the persistence step swallows the throw.
       await user.click(screen.getByRole("button", { name: "dark" }));
       expect(document.documentElement.classList.contains("dark")).toBe(true);
     } finally {
       Object.defineProperty(globalThis, "localStorage", { configurable: true, value: original });
+    }
+  });
+
+  it("U-THEME-007 — persist tolerates cookie write failures", async () => {
+    const cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, "cookie");
+    Object.defineProperty(document, "cookie", {
+      configurable: true,
+      get: () => "",
+      set: () => {
+        throw new Error("Cookie blocked");
+      },
+    });
+    try {
+      const user = userEvent.setup();
+      render(
+        <ThemeProvider>
+          <Probe />
+        </ThemeProvider>
+      );
+      await user.click(screen.getByRole("button", { name: "dark" }));
+      expect(localStorage.getItem("muga.theme")).toBe("dark");
+      expect(document.documentElement.classList.contains("dark")).toBe(true);
+    } finally {
+      if (cookieDescriptor) Object.defineProperty(Document.prototype, "cookie", cookieDescriptor);
+      Reflect.deleteProperty(document, "cookie");
     }
   });
 });

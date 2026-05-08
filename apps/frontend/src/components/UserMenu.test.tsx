@@ -11,17 +11,26 @@
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const useAuthMock = vi.fn();
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => useAuthMock(),
 }));
 
+const replaceWithMock = vi.fn();
+vi.mock("../lib/navigation", () => ({
+  replaceWith: (path: string) => replaceWithMock(path),
+}));
+
 import { UserMenu } from "./UserMenu";
 
-describe("U-AUTH-002: UserMenu", () => {
-  it("U-AUTH-002a — loading state renders an aria-busy skeleton", () => {
+describe("UserMenu — header dropdown for the signed-in/signed-out states", () => {
+  beforeEach(() => {
+    replaceWithMock.mockClear();
+  });
+
+  it("U-AUTH-002a — while AuthContext is loading, render an aria-busy skeleton (no button flash)", () => {
     useAuthMock.mockReturnValue({
       user: null,
       loading: true,
@@ -51,22 +60,21 @@ describe("U-AUTH-002: UserMenu", () => {
   it("U-AUTH-002c — signed-in customer with photo renders <img> and the role label", () => {
     useAuthMock.mockReturnValue({
       user: {
-        uid: "u1",
-        email: "c@example.com",
+        uid: "usr_saeed_h",
+        email: "saeedh582@gmail.com",
         role: "customer",
-        displayName: "Carol Catalog",
-        photoURL: "https://photos.example.com/c.jpg",
+        displayName: "Saeed Hassanpour",
+        photoURL: "https://lh3.googleusercontent.com/saeed.jpg",
       },
       loading: false,
       signIn: vi.fn(),
       signOut: vi.fn(),
     });
     render(<UserMenu />);
-    expect(screen.getByText("Carol Catalog")).toBeInTheDocument();
-    // Match the role line specifically (the only div containing "Role:")
+    expect(screen.getByText("Saeed Hassanpour")).toBeInTheDocument();
     const roleLine = screen.getByText(/role/i, { selector: "div" });
     expect(roleLine).toHaveTextContent(/customer/i);
-    const img = document.querySelector('img[src="https://photos.example.com/c.jpg"]');
+    const img = document.querySelector('img[src="https://lh3.googleusercontent.com/saeed.jpg"]');
     expect(img).not.toBeNull();
     expect(img).toHaveAttribute("referrerpolicy", "no-referrer");
   });
@@ -74,8 +82,8 @@ describe("U-AUTH-002: UserMenu", () => {
   it("U-AUTH-002d — signed-in user without photoURL renders the email-initial fallback", () => {
     useAuthMock.mockReturnValue({
       user: {
-        uid: "u2",
-        email: "donovan@example.com",
+        uid: "usr_donovan_p",
+        email: "donovan.park@gmail.com",
         role: "customer",
         displayName: null,
         photoURL: null,
@@ -85,21 +93,19 @@ describe("U-AUTH-002: UserMenu", () => {
       signOut: vi.fn(),
     });
     render(<UserMenu />);
-    // No <img>, but the initial 'D' is shown
     expect(document.querySelector("img")).toBeNull();
     expect(screen.getByText("D")).toBeInTheDocument();
-    // displayName falls back to email
-    expect(screen.getByText("donovan@example.com")).toBeInTheDocument();
+    expect(screen.getByText("donovan.park@gmail.com")).toBeInTheDocument();
   });
 
   it("U-AUTH-002e — sign-out click triggers signOut", async () => {
     const signOut = vi.fn();
     useAuthMock.mockReturnValue({
       user: {
-        uid: "u3",
-        email: "e@example.com",
+        uid: "usr_marcus_admin",
+        email: "marcus@muga.app",
         role: "admin",
-        displayName: "Erin Admin",
+        displayName: "Marcus Reed",
         photoURL: null,
       },
       loading: false,
@@ -110,13 +116,14 @@ describe("U-AUTH-002: UserMenu", () => {
     render(<UserMenu />);
     await user.click(screen.getByRole("button", { name: /sign out/i }));
     expect(signOut).toHaveBeenCalledTimes(1);
+    expect(replaceWithMock).toHaveBeenCalledWith("/login");
   });
 
   it("U-AUTH-002f — admin role renders the 'Admin' role label (not 'Customer')", () => {
     useAuthMock.mockReturnValue({
       user: {
-        uid: "u4",
-        email: "a@example.com",
+        uid: "usr_erin_editor",
+        email: "erin.editor@muga.app",
         role: "admin",
         displayName: "Erin Editor",
         photoURL: null,
@@ -126,8 +133,6 @@ describe("U-AUTH-002: UserMenu", () => {
       signOut: vi.fn(),
     });
     render(<UserMenu />);
-    // Role row text is "Role: Admin" (i18n combines them via "{label}: {value}").
-    // Match the role-line node directly to avoid colliding with display name.
     const roleLine = screen.getByText(/role/i, { selector: "div" });
     expect(roleLine).toHaveTextContent(/admin/i);
     expect(roleLine).not.toHaveTextContent(/customer/i);

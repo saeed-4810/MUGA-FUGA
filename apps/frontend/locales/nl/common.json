@@ -7,11 +7,11 @@
     "artists": "Artiesten",
     "adminQueue": "Goedkeuringswachtrij",
     "pendingReview": "{{count}} in beoordeling",
+    "signIn": "Inloggen",
+    "mobileMenu": "Mobiele navigatie",
     "openMenu": "Navigatiemenu openen",
     "closeMenu": "Navigatiemenu sluiten",
-    "closeMenuBackdrop": "Navigatie-overlay sluiten",
-    "mobileMenu": "Mobiele navigatie",
-    "signIn": "Inloggen"
+    "closeMenuBackdrop": "Navigatie-achtergrond sluiten"
   },
   "topbar": {
     "path": "{{path}}"
@@ -25,7 +25,7 @@
     "label": "Taal"
   },
   "dialog": {
-    "close": "Dialoog sluiten"
+    "close": "Sluiten"
   },
   "dashboard": {
     "welcomeBack": "Welkom terug, {{name}}",

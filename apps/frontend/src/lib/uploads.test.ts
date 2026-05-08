@@ -85,7 +85,6 @@ describe("U-UPLOAD-001..004: signed-URL upload", () => {
     });
     const file = new File(["x".repeat(100)], "cover.jpg", { type: "image/jpeg" });
     await expect(uploadCoverArt(file)).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
-    // The PUT must not have been attempted
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

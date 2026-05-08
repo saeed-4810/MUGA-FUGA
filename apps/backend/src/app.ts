@@ -1,13 +1,10 @@
 import cors from "cors";
 import express, { type Express, type Request } from "express";
 import helmet from "helmet";
-// pino-http ships a CJS module with a default export. Under NodeNext module
-// resolution TS needs the namespace-with-.default form to resolve the call
-// signature.
-import * as pinoHttpNs from "pino-http";
 import type { HttpLogger, Options } from "pino-http";
+import * as pinoHttpNs from "pino-http";
 
-import { loadEnv, type Env } from "./config/env.js";
+import { type Env, loadEnv } from "./config/env.js";
 import { Sentry } from "./config/sentry.js";
 import { emitAlert } from "./lib/alerting.js";
 import { buildErrorHandler, notFoundHandler } from "./middleware/error.js";
@@ -28,7 +25,6 @@ export const buildApp = (options: BuildAppOptions = {}): Express => {
   const env = options.env ?? loadEnv();
   const app = express();
 
-  // Sentry request handler must be first
   if (env.SENTRY_DSN) {
     Sentry.setupExpressErrorHandler(app);
   }
@@ -56,10 +52,6 @@ export const buildApp = (options: BuildAppOptions = {}): Express => {
     })
   );
 
-  // All routers mount under /api so Firebase Hosting's /api/** rewrite
-  // forwards requests transparently. docsRouter already registers
-  // /api/docs + /api/openapi.json internally (to match the openapi spec),
-  // so it mounts at root to avoid /api/api/docs.
   app.use("/api", healthRouter(env));
   app.use(docsRouter());
   app.use("/api/me", meRouter(env));

@@ -1,9 +1,11 @@
 import { getIdToken } from "./firebase";
 
-export const resolveApiBaseUrl = (value: string | undefined): string =>
-  value ?? "http://localhost:3001";
+export const resolveApiBaseUrl = (configuredUrl: string | undefined): string =>
+  configuredUrl ?? "/api";
 
-const BASE = resolveApiBaseUrl(import.meta.env.VITE_API_URL);
+export const getApiBase = resolveApiBaseUrl;
+
+const BASE = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 export type ApiError = {
   status: number;
@@ -42,7 +44,7 @@ async function apiFetch<T>(
     try {
       body = text ? (JSON.parse(text) as Partial<ApiError>) : {};
     } catch {
-      // non-JSON error body
+      void 0;
     }
     const err: ApiError = {
       status: res.status,

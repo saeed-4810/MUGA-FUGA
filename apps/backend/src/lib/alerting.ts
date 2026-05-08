@@ -56,9 +56,6 @@ export const emitAlert = async (
   event: AlertEvent,
   logger: Logger = console
 ): Promise<void> => {
-  // 1. Always emit a structured log line so log-based metrics + Cloud
-  //    Monitoring see it. The `alert.*` namespace is what
-  //    `log-based-metrics.yaml` filters on.
   const logPayload = {
     alert: {
       kind: event.kind,
@@ -73,7 +70,6 @@ export const emitAlert = async (
     logger.info(logPayload);
   }
 
-  // 2. Sentry tag (no-op if Sentry not initialised)
   Sentry.withScope((scope) => {
     scope.setTag("alert_kind", event.kind);
     scope.setTag("alert_severity", event.severity);
@@ -89,7 +85,6 @@ export const emitAlert = async (
     }
   });
 
-  // 3. Slack webhook (best-effort; never throws)
   if (env.SLACK_WEBHOOK_URL && event.severity !== "info") {
     try {
       await fetch(env.SLACK_WEBHOOK_URL, {
@@ -113,7 +108,7 @@ export const emitAlert = async (
         }),
       });
     } catch {
-      // Swallow — alerting must never crash the request path.
+      void 0;
     }
   }
 };

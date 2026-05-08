@@ -21,15 +21,19 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 const STORAGE_KEY = "muga.theme";
+const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
-const readStoredTheme = (): Theme => {
+const isTheme = (value: string | null | undefined): value is Theme =>
+  value === "light" || value === "dark" || value === "system";
+
+const readStoredTheme = (fallback: Theme): Theme => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") return stored;
+    if (isTheme(stored)) return stored;
   } catch {
     /* ignore */
   }
-  return "system";
+  return fallback;
 };
 
 const systemPrefersDark = (): boolean =>
@@ -42,20 +46,36 @@ const applyDocumentClass = (resolved: ResolvedTheme): void => {
   const root = document.documentElement;
   if (resolved === "dark") root.classList.add("dark");
   else root.classList.remove("dark");
+  root.style.colorScheme = resolved;
 };
 
-export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme());
+const persistTheme = (theme: Theme): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    /* ignore */
+  }
+  try {
+    document.cookie = `${STORAGE_KEY}=${theme}; Path=/; Max-Age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+  } catch {
+    /* ignore */
+  }
+};
+
+export const ThemeProvider = ({
+  children,
+  initialTheme = "system",
+}: {
+  children: ReactNode;
+  initialTheme?: Theme;
+}) => {
+  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme(initialTheme));
   const [resolved, setResolved] = useState<ResolvedTheme>(() => resolve(theme));
 
   // Apply class + persist
   useEffect(() => {
     applyDocumentClass(resolved);
-    try {
-      localStorage.setItem(STORAGE_KEY, theme);
-    } catch {
-      /* ignore */
-    }
+    persistTheme(theme);
   }, [theme, resolved]);
 
   // Sync with system changes when theme is "system"

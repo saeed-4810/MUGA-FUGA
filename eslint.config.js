@@ -14,6 +14,7 @@ export default [
       "**/node_modules/**",
       "**/.next/**",
       "**/*.config.js",
+      "**/*.config.mjs",
       "**/*.config.ts",
       "**/playwright-report/**",
       "**/test-results/**",

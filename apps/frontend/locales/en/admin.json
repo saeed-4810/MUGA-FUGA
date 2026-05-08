@@ -10,10 +10,10 @@
     "tableTitle": "Pending submissions",
     "filters": {
       "status": "Status filter",
-      "description": "The admin queue shows customer submissions waiting for review."
+      "description": "Review products waiting for admin approval."
     },
     "status": {
-      "pending": "Pending review ({{count}})"
+      "pending": "{{count}} pending"
     },
     "columns": {
       "owner": "Owner",
@@ -22,21 +22,19 @@
     },
     "actions": {
       "approve": "Approve",
-      "approving": "Approving…",
-      "details": "Details",
       "reject": "Reject",
-      "rejecting": "Rejecting…"
+      "details": "Details"
     },
     "details": {
-      "title": "Review {{name}}",
-      "body": "Check the submission details before taking action.",
+      "title": "Submission details for {{name}}",
+      "body": "Review ownership, artist, and creation metadata before taking action.",
       "close": "Close"
     },
     "reject": {
       "title": "Reject {{name}}?",
-      "body": "This moves the product out of the customer-visible approval queue.",
+      "body": "Add an optional reason for audit history before rejecting this product.",
       "reason": "Reason",
-      "placeholder": "Optional reason for the customer or audit trail",
+      "placeholder": "Optional reason",
       "cancel": "Cancel",
       "confirm": "Reject product"
     }
@@ -95,18 +93,22 @@
         "bio": "Bio",
         "country": "Country",
         "countryHint": "Optional ISO-2 country code, for example NL or US.",
-        "image": "Image"
+        "image": "Image",
+        "imageHint": "JPEG, PNG, WebP, or AVIF — up to 5 MB.",
+        "noImage": "No image selected yet"
       },
       "previewAlt": "Artist image preview",
       "errors": {
         "upload": "Image upload failed. Try again.",
-        "uploadStatus": "Image upload failed with status {{status}}. Try again."
+        "uploadStatus": "Image upload failed with status {{status}}. Try again.",
+        "uploadInProgress": "Wait for the image upload to finish before saving."
       },
       "actions": {
         "close": "Close",
         "cancel": "Cancel",
         "save": "Save artist",
-        "saving": "Saving…"
+        "saving": "Saving…",
+        "uploading": "Uploading image…"
       }
     },
     "delete": {
@@ -118,6 +120,14 @@
       "hasMore": "More products also reference this artist.",
       "cancel": "Cancel",
       "confirm": "Delete artist"
+    },
+    "reject": {
+      "title": "Reject {{name}}?",
+      "body": "Add an optional reason for audit history before rejecting this artist request.",
+      "reason": "Reason",
+      "placeholder": "Optional reason",
+      "cancel": "Cancel",
+      "confirm": "Reject artist"
     },
     "imageAlt": "Cover image for {{name}}",
     "noCountry": "—"

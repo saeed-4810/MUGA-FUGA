@@ -1,10 +1,16 @@
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../context/AuthContext";
+import { replaceWith } from "../lib/navigation";
 
 export const UserMenu = () => {
   const { t } = useTranslation("auth");
   const { user, signIn, signOut, loading } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    replaceWith("/login");
+  };
 
   if (loading) {
     return (
@@ -44,7 +50,7 @@ export const UserMenu = () => {
           {user.email[0]?.toUpperCase()}
         </div>
       )}
-      <button type="button" className="btn-ghost h-9" onClick={() => void signOut()}>
+      <button type="button" className="btn-ghost h-9" onClick={() => void handleSignOut()}>
         {t("actions.signOut")}
       </button>
     </div>

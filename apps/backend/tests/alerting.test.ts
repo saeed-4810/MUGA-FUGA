@@ -25,7 +25,7 @@ const baseEnv: Env = {
   ALERT_READY_LATENCY_BUDGET_MS: 2000,
 };
 
-describe("T-ALERT-001..006: structured alert emitter", () => {
+describe("emitAlert — structured alert pipeline", () => {
   let logger: {
     info: ReturnType<typeof vi.fn>;
     warn: ReturnType<typeof vi.fn>;
@@ -42,12 +42,12 @@ describe("T-ALERT-001..006: structured alert emitter", () => {
     globalThis.fetch = originalFetch;
   });
 
-  it("T-ALERT-001 — info severity logs via .info and skips Slack", async () => {
+  it("T-ALERT-001 — info-level alerts go to logger.info and don't ping Slack at all", async () => {
     const fetchSpy = vi.fn();
     globalThis.fetch = fetchSpy as unknown as typeof globalThis.fetch;
     await emitAlert(
-      { ...baseEnv, SLACK_WEBHOOK_URL: "https://example.invalid/hook" },
-      { kind: "auth_failure", severity: "info", message: "single auth fail" },
+      { ...baseEnv, SLACK_WEBHOOK_URL: "https://hooks.slack.test/abc" },
+      { kind: "auth_failure", severity: "info", message: "single auth failure event" },
       logger
     );
     expect(logger.info).toHaveBeenCalledTimes(1);
@@ -56,17 +56,17 @@ describe("T-ALERT-001..006: structured alert emitter", () => {
     const payload = logger.info.mock.calls[0]![0] as Record<string, unknown>;
     expect(payload).toMatchObject({
       alert: { kind: "auth_failure", severity: "info" },
-      message: "single auth fail",
+      message: "single auth failure event",
     });
   });
 
-  it("T-ALERT-002 — notify severity logs via .warn", async () => {
+  it("T-ALERT-002 — notify-level alerts log as warn (so log-based metrics catch them)", async () => {
     await emitAlert(
       baseEnv,
       {
         kind: "ready_check_slow",
         severity: "notify",
-        message: "slow",
+        message: "readiness probe slow",
         context: { latency_ms: 3000 },
       },
       logger
@@ -79,16 +79,16 @@ describe("T-ALERT-001..006: structured alert emitter", () => {
     });
   });
 
-  it("T-ALERT-003 — page severity also logs via .warn", async () => {
+  it("T-ALERT-003 — page-level alerts also use warn (the SEV is the differentiator, not the log level)", async () => {
     await emitAlert(
       baseEnv,
-      { kind: "ready_check_failed", severity: "page", message: "down" },
+      { kind: "ready_check_failed", severity: "page", message: "service is down" },
       logger
     );
     expect(logger.warn).toHaveBeenCalledTimes(1);
   });
 
-  it("T-ALERT-004 — sends Slack webhook when SLACK_WEBHOOK_URL is set and severity != info", async () => {
+  it("T-ALERT-004 — when SLACK_WEBHOOK_URL is set, page/notify alerts also POST to Slack with an attachment", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
     globalThis.fetch = fetchSpy as unknown as typeof globalThis.fetch;
 
@@ -98,7 +98,7 @@ describe("T-ALERT-001..006: structured alert emitter", () => {
         kind: "unhandled_error",
         severity: "page",
         message: "boom",
-        context: { route: "POST /products", requestId: "req-1" },
+        context: { route: "POST /products", requestId: "rid_inv_001" },
       },
       logger
     );
@@ -111,12 +111,12 @@ describe("T-ALERT-001..006: structured alert emitter", () => {
     expect(body.attachments[0].fields).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ title: "route", value: "POST /products" }),
-        expect.objectContaining({ title: "requestId", value: "req-1" }),
+        expect.objectContaining({ title: "requestId", value: "rid_inv_001" }),
       ])
     );
   });
 
-  it("T-ALERT-005 — never throws when Slack webhook fails", async () => {
+  it("T-ALERT-005 — Slack webhook failing is non-fatal — emitAlert never throws", async () => {
     const fetchSpy = vi.fn().mockRejectedValue(new Error("network down"));
     globalThis.fetch = fetchSpy as unknown as typeof globalThis.fetch;
     await expect(
@@ -129,7 +129,7 @@ describe("T-ALERT-001..006: structured alert emitter", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("T-ALERT-005b — non-string context values are JSON-stringified into Slack fields", async () => {
+  it("T-ALERT-005b — non-string context values get JSON-stringified into Slack fields", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
     globalThis.fetch = fetchSpy as unknown as typeof globalThis.fetch;
     await emitAlert(
@@ -148,7 +148,7 @@ describe("T-ALERT-001..006: structured alert emitter", () => {
     expect(fields.find((f) => f.title === "nested")!.value).toBe('{"foo":"bar"}');
   });
 
-  it("T-ALERT-006 — skips Slack entirely when SLACK_WEBHOOK_URL is blank", async () => {
+  it("T-ALERT-006 — when SLACK_WEBHOOK_URL is blank we skip Slack entirely (no fetch call)", async () => {
     const fetchSpy = vi.fn();
     globalThis.fetch = fetchSpy as unknown as typeof globalThis.fetch;
     await emitAlert(baseEnv, { kind: "synthetic", severity: "notify", message: "drill" }, logger);

@@ -1,7 +1,0 @@
-{
-  "generic": "Something went wrong. Please try again.",
-  "network": "Network error. Check your connection.",
-  "validation": "Some fields are invalid.",
-  "unauthenticated": "Please sign in to continue.",
-  "forbidden": "You don't have permission for this action."
-}

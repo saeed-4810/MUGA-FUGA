@@ -39,7 +39,6 @@ const EnvSchema = z.object({
   FIREBASE_AUTH_EMULATOR_HOST: z.string().optional().default(""),
   FIREBASE_STORAGE_EMULATOR_HOST: z.string().optional().default(""),
 
-  // Alerting
   SLACK_WEBHOOK_URL: z.string().optional().default(""),
   PAGERDUTY_INTEGRATION_KEY: z.string().optional().default(""),
   ALERT_EMAIL_RECIPIENTS: z

@@ -28,3 +28,25 @@ export async function uploadCoverArt(file: File): Promise<string> {
     return objectPath;
   });
 }
+
+export async function requestSignedArtistImageUpload(file: File): Promise<SignedUploadResponse> {
+  return api.post<SignedUploadResponse>("/artists/signed-upload", {
+    contentType: file.type,
+    fileSize: file.size,
+  });
+}
+
+export async function uploadArtistImage(file: File): Promise<string> {
+  return withWatchdog("uploadArtistImage", async () => {
+    const { uploadUrl, objectPath } = await requestSignedArtistImageUpload(file);
+    const res = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "content-type": file.type },
+      body: file,
+    });
+    if (!res.ok) {
+      throw new Error(`Upload failed (status ${res.status})`);
+    }
+    return objectPath;
+  });
+}

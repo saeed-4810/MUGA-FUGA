@@ -1,7 +1,7 @@
 # MUGA — Music Product Management System
 
 > Take-home submission — Senior Full-Stack Engineer (frontend-leaning).
-> **Stack**: Node.js + Express + Firebase Admin · React + Vite + Tailwind · Firestore · Firebase Auth · Cloud Run · Firebase Hosting · GitHub Actions.
+> **Stack**: Node.js + Express + Firebase Admin · Next.js App Router SSR + React + Tailwind · Firestore · Firebase Auth · Cloud Run · Firebase Hosting · GitHub Actions.
 
 A simple product management system for a music-centric environment. Artists and labels can create albums / singles / EPs with cover art; an admin approves them before they go live.
 
@@ -16,21 +16,21 @@ A simple product management system for a music-centric environment. Artists and 
 
 ## Non-functional scope
 
-| Requirement          | Specification                                                               |
-| -------------------- | --------------------------------------------------------------------------- |
-| Backend              | Node.js 20, Express 4, TypeScript strict ESM, Zod, Pino, OpenAPI 3.1        |
-| Frontend             | React 18, Vite 5, TypeScript strict, Tailwind 3, react-router 6             |
-| Auth                 | Firebase Auth (Google provider) + Firebase Admin token verification         |
-| Roles                | Admin, Customer (admin approves product creation via custom claims)         |
-| Image storage        | Signed-URL direct-to-Storage upload + Firebase Hosting CDN                  |
-| Hosting              | Firebase Hosting (frontend) + Cloud Run (backend), **staging + production** |
-| Internationalization | EN (baseline) + NL (architecture supports more)                             |
-| Theming              | Light / dark / system with persisted user choice                            |
-| CI/CD                | GitHub Actions — staging on `main` push, production on SemVer tag           |
-| Monitoring           | Sentry (browser + Node), Firebase Performance, web-vitals                   |
-| Profiling            | Lighthouse CI on PR                                                         |
-| Alerting             | Sentry + Cloud Monitoring policies-as-code → Slack + PagerDuty              |
-| Tests                | Vitest (100% line + branch + function + statement coverage enforced)        |
+| Requirement          | Specification                                                                                |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| Backend              | Node.js 20, Express 4, TypeScript strict ESM, Zod, Pino, OpenAPI 3.1                         |
+| Frontend             | Next.js App Router SSR, React 18, TypeScript strict, Tailwind 3                              |
+| Auth                 | Firebase Auth (Google provider), Firebase Admin token verification, `__session` SSR cookie   |
+| Roles                | Admin, Customer (admin approves product creation via custom claims)                          |
+| Image storage        | Signed-URL direct-to-Storage upload + Firebase Hosting CDN                                   |
+| Hosting              | Firebase Hosting CDN + Cloud Run (`muga-frontend`, `muga-backend`), **staging + production** |
+| Internationalization | EN (baseline) + NL (architecture supports more)                                              |
+| Theming              | Light / dark / system with persisted user choice                                             |
+| CI/CD                | GitHub Actions — staging on `main` push, production on SemVer tag                            |
+| Monitoring           | Sentry (browser + Node), Firebase Performance, web-vitals                                    |
+| Profiling            | web-vitals reporting                                                                         |
+| Alerting             | Sentry + Cloud Monitoring policies-as-code → Slack + PagerDuty                               |
+| Tests                | Vitest (100% line + branch + function + statement coverage enforced)                         |
 
 ---
 
@@ -54,10 +54,11 @@ Run Firebase emulators to develop end-to-end without touching cloud:
 pnpm emulators
 ```
 
-Build the backend container locally:
+Build containers locally:
 
 ```bash
 docker build -f apps/backend/Dockerfile -t muga-backend .
+docker build -f apps/frontend/Dockerfile -t muga-frontend .
 ```
 
 ---
@@ -79,13 +80,13 @@ code/
 │   │   │   └── index.ts   server bind
 │   │   ├── tests/         vitest + supertest
 │   │   └── Dockerfile
-│   └── frontend/          React + Vite + Tailwind (Firebase Hosting target)
-│       ├── src/
+│   └── frontend/          Next.js App Router SSR + React + Tailwind (Cloud Run target)
+│       ├── app/           route groups, layouts, session route handler
+│       ├── src/           components, contexts, lib, i18n, styles
 │       ├── e2e/           Playwright specs
 │       └── public/locales/{en,nl}/ i18n catalogs
 ├── .github/
 │   ├── workflows/         ci.yml, deploy-staging.yml, deploy-production.yml
-│   ├── lighthouse/        lighthouserc.json
 │   ├── monitoring/        alert-*.yaml, log-based-metrics.yaml
 │   ├── CODEOWNERS
 │   └── PULL_REQUEST_TEMPLATE.md
@@ -105,7 +106,7 @@ code/
 
 - **Runtime**: Node 20, pnpm 9 workspaces, TypeScript 5 strict ESM
 - **Backend**: Express 4, Firebase Admin 12, Zod, Pino, Sentry, Helmet, CORS, swagger-ui-express
-- **Frontend**: React 18, Vite 5, Tailwind 3, react-router 6, react-i18next 15, Firebase 10
+- **Frontend**: Next.js App Router SSR, React 18, Tailwind 3, react-i18next 15, Firebase Web SDK 10, Firebase Admin SSR helpers
 - **Tests**: Vitest 1.6 (unit + integration), Supertest, Playwright 1.x (E2E), Testing Library
 - **Tooling**: Husky + lint-staged + commitlint + ESLint 9 + Prettier 3 + TypeScript 5
 
@@ -115,7 +116,7 @@ code/
 
 ### Auth
 
-Firebase Auth Google provider. Backend verifies the bearer ID token via Firebase Admin and attaches `req.user = { uid, email, role, emailVerified }`. Role is a Firebase Auth custom claim (`admin` or `customer`), set on first sign-in by `POST /me/bootstrap` based on an allow-list env var.
+Firebase Auth Google provider. Backend verifies the bearer ID token via Firebase Admin and attaches `req.user = { uid, email, role, emailVerified }`. Role is a Firebase Auth custom claim (`admin` or `customer`), set on first sign-in by `POST /me/bootstrap` based on an allow-list env var. The Next.js frontend also exposes `/session` Route Handlers that exchange a Firebase ID token for the `__session` HttpOnly cookie used by server-rendered route guards.
 
 ### Product lifecycle
 
@@ -144,11 +145,11 @@ Every backend alert is a Pino log line with `alert.kind` + `alert.severity` fiel
 - **Production** — SemVer tag `vX.Y.Z` pushed on `main` triggers `.github/workflows/deploy-production.yml`.
 - Deploy failure pages the on-call via Slack + PagerDuty (alert A9).
 
-| Target     | Frontend                             | Backend                                |
-| ---------- | ------------------------------------ | -------------------------------------- |
-| Local      | Vite dev :5173                       | Express dev :3001 + Firebase emulators |
-| Staging    | Firebase Hosting (`muga-staging`)    | Cloud Run `muga-backend` (staging)     |
-| Production | Firebase Hosting (`muga-production`) | Cloud Run `muga-backend` (production)  |
+| Target     | Frontend                                     | Backend                                |
+| ---------- | -------------------------------------------- | -------------------------------------- |
+| Local      | Next.js dev :5173                            | Express dev :3001 + Firebase emulators |
+| Staging    | Firebase Hosting → Cloud Run `muga-frontend` | Cloud Run `muga-backend` (staging)     |
+| Production | Firebase Hosting → Cloud Run `muga-frontend` | Cloud Run `muga-backend` (production)  |
 
 ---
 
@@ -177,9 +178,8 @@ pnpm test:ci      # vitest, 100% coverage threshold
 | Lint / format        | Husky `pre-commit` (lint-staged), CI `lint` job                        |
 | TypeScript strict    | Husky `pre-push`, CI `typecheck` job                                   |
 | 100% coverage        | Vitest thresholds enforced in `apps/*/vitest.config.ts`; CI `test` job |
-| E2E                  | Playwright on `chromium` + `Pixel 7`; CI `e2e` job                     |
+| E2E                  | Playwright on `chromium` + `Pixel 7`; post-deploy E2E jobs             |
 | Docker build         | CI `docker` job                                                        |
-| Lighthouse           | CI `lighthouse` job on PR (a11y ≥ 95 required)                         |
 | Code review          | CODEOWNERS-enforced; ≥1 approval required                              |
 | Linear history       | Squash merges only; force-push blocked on `main`                       |
 

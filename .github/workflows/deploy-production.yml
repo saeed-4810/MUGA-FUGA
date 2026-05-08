@@ -18,15 +18,16 @@ env:
   GCP_PROJECT_NUMBER: "524228723694"
   ARTIFACT_REPO: muga
   SERVICE: muga-backend
+  BACKEND_RUN_URL: https://muga-backend-524228723694.europe-west1.run.app/api
   # PagerDuty Events API v2 endpoint. US region: events.pagerduty.com.
   # EU region: events.eu.pagerduty.com. Swap here based on your PD org region.
   PAGERDUTY_EVENTS_URL: "https://events.eu.pagerduty.com/v2/enqueue"
   # Firebase Web app config (public — domain-restricted by Firebase Auth).
-  VITE_FIREBASE_API_KEY: AIzaSyA83pvqqaro-AbDGx-8eK0IVihJov9u1kI
-  VITE_FIREBASE_AUTH_DOMAIN: muga-production.firebaseapp.com
-  VITE_FIREBASE_PROJECT_ID: muga-production
-  VITE_FIREBASE_APP_ID: "1:524228723694:web:f73b069f91784933d684ff"
-  VITE_FIREBASE_STORAGE_BUCKET: muga-production-cover-art
+  NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyA83pvqqaro-AbDGx-8eK0IVihJov9u1kI
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: muga-production.firebaseapp.com
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: muga-production
+  NEXT_PUBLIC_FIREBASE_APP_ID: "1:524228723694:web:f73b069f91784933d684ff"
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: muga-production-cover-art
 
 jobs:
   # Gate: the tagged SHA must already have CI + docker green on main.
@@ -89,18 +90,21 @@ jobs:
           echo "SENTRY_DSN=$(gcloud secrets versions access latest --secret=sentry-dsn-frontend --project=${{ env.GCP_PROJECT }})" >> $GITHUB_OUTPUT
       - name: Build frontend (production env)
         env:
-          VITE_API_URL: https://muga-production.web.app/api
-          VITE_FIREBASE_API_KEY: ${{ env.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ env.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ env.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ env.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_APP_ID: ${{ env.VITE_FIREBASE_APP_ID }}
-          VITE_SENTRY_DSN: ${{ steps.secrets.outputs.SENTRY_DSN }}
-          VITE_SENTRY_ENVIRONMENT: production
-          VITE_APP_VERSION: ${{ github.ref_name }}
+          API_URL: ${{ env.BACKEND_RUN_URL }}
+          NEXT_PUBLIC_API_URL: https://muga-production.web.app/api
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ env.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ env.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ env.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ steps.secrets.outputs.SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: production
+          NEXT_PUBLIC_APP_VERSION: ${{ github.ref_name }}
         run: pnpm --filter @muga/frontend build
       - name: Deploy Firebase (hosting + firestore + storage)
         run: |
+          gcloud storage buckets update gs://muga-production-cover-art \
+            --cors-file=storage-cors.production.json
           npx -y firebase-tools@latest deploy \
             --only hosting:app,firestore:rules,firestore:indexes,storage \
             --project ${{ env.GCP_PROJECT }} \

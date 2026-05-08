@@ -21,22 +21,26 @@ interface ArtistComboboxProps {
   onChange: (artist: ArtistOption | null) => void;
   onRequestNew: (name: string) => void;
   disabled?: boolean;
+  initialItems?: ArtistOption[];
+  initialItemsLoaded?: boolean;
 }
 
 const normalise = (value: string) => value.trim().toLowerCase();
-const getInitial = (name: string) => name.trim().charAt(0).toUpperCase() || "♪";
+const getInitial = (_name: string) => "♪";
 
 export const ArtistCombobox = ({
   value,
   onChange,
   onRequestNew,
   disabled = false,
+  initialItems = [],
+  initialItemsLoaded = false,
 }: ArtistComboboxProps) => {
   const { t } = useTranslation("artists");
   const inputId = useId();
   const listboxId = `${inputId}-listbox`;
   const [query, setQuery] = useState(value?.name ?? "");
-  const [items, setItems] = useState<ArtistOption[]>([]);
+  const [items, setItems] = useState<ArtistOption[]>(initialItems);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [open, setOpen] = useState(false);
@@ -47,6 +51,7 @@ export const ArtistCombobox = ({
   }, [value?.name]);
 
   useEffect(() => {
+    if (initialItemsLoaded && query.trim() === "") return;
     const timeout = window.setTimeout(() => {
       setLoading(true);
       setError(null);
@@ -75,7 +80,9 @@ export const ArtistCombobox = ({
     () => items.some((artist) => normalise(artist.name) === normalise(query)),
     [items, query]
   );
-  const canRequest = !loading && query.trim().length > 0 && !exactMatch;
+  const selectedNameMatchesQuery = value ? normalise(value.name) === normalise(query) : false;
+  const canRequest =
+    !loading && query.trim().length > 0 && !exactMatch && !selectedNameMatchesQuery;
 
   const selectArtist = (artist: ArtistOption) => {
     onChange(artist);

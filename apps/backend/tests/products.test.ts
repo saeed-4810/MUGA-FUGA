@@ -1,15 +1,19 @@
-import express, { type NextFunction, type Request, type Response } from "express";
+/* eslint-disable import/order -- known false positive: the import-order rule
+   misclassifies type-only + value imports under alphabetise mode. The block is
+   hand-sorted: external (express, supertest, vitest) → internal, alphabetical
+   by path. @typescript-eslint/consistent-type-imports still enforces correct
+   `import type` usage. */
+import express, { type Request, type Response, type NextFunction } from "express";
 import request from "supertest";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import type { Env } from "../src/config/env.js";
 import type { Artist } from "../src/domain/artist.js";
 import { AppError } from "../src/domain/errors.js";
-import { type Product, ProductSchema } from "../src/domain/product.js";
+import { ProductSchema, type Product } from "../src/domain/product.js";
 import { errorHandler, notFoundHandler } from "../src/middleware/error.js";
 import { requestIdMiddleware } from "../src/middleware/requestId.js";
-// ─── Import after mocks ────────────────────────────────────────────────
-import { productsRouter } from "../src/routes/products.js";
+/* eslint-enable import/order */
 
 /**
  * Tests for the Products CRUD + signed-upload + admin endpoints.
@@ -34,7 +38,6 @@ import { productsRouter } from "../src/routes/products.js";
  *   - requireRole is re-exported from the real module (covered separately in auth.test.ts).
  */
 
-// ─── Controllable Firestore + Storage state ────────────────────────────
 type DocRec = { data: Product };
 const store: Map<string, DocRec> = new Map();
 type ArtistRec = { data: Artist };
@@ -54,7 +57,7 @@ const signedUrlCalls: Array<{ path: string; contentType: string }> = [];
 const objectDeleteCalls: string[] = [];
 
 let docCounter = 0;
-const mintId = () => `prod-${++docCounter}`;
+const mintId = () => `prod_${++docCounter}`;
 
 vi.mock("../src/lib/firebase.js", () => {
   const makeDocRef = (id: string) => ({
@@ -77,7 +80,6 @@ vi.mock("../src/lib/firebase.js", () => {
     },
   });
 
-  // Minimal query builder
   const makeQuery = (filter: { status?: string } = {}) => ({
     orderBy: () => makeQuery(filter),
     limit: () => makeQuery(filter),
@@ -124,9 +126,6 @@ vi.mock("../src/lib/firebase.js", () => {
             throw new Error("signed url generation failed");
           }
           if (storageBehaviour.signedUrlMode === "throw-non-error") {
-            // Throw a value without `.message` to exercise the
-            // `(err as Error).message ?? "upload validation failed"`
-            // fallback branch in products.ts.
             throw { notAnError: true } as unknown;
           }
           signedUrlCalls.push({ path: objectPath, contentType: opts.contentType });
@@ -145,10 +144,6 @@ vi.mock("../src/lib/firebase.js", () => {
   };
 });
 
-// ─── Mock auth middleware ──────────────────────────────────────────────
-// Type for the importActual helper is derived from the real module path at
-// runtime (avoids an extra `import type` that the import/order rule treats
-// as a separate group and conflicts with blank-line rules).
 type AuthMiddlewareModule = {
   requireAuth: unknown;
   requireRole: unknown;
@@ -156,23 +151,17 @@ type AuthMiddlewareModule = {
 vi.mock("../src/middleware/auth.js", async (importActual) => {
   const actual = (await importActual()) as AuthMiddlewareModule;
   return {
-    // Real requireRole — covered separately in auth.test.ts, reused here.
     requireRole: actual.requireRole,
-    // Lightweight requireAuth for product tests. Reads `x-test-user`
-    // header formatted `<uid>:<role>:<email>`. Missing → 401 via Errors.
     requireAuth: () => (req: Request, _res: Response, next: NextFunction) => {
       const header = req.header("x-test-user");
       if (!header) {
         next(new AppError(401, "UNAUTHENTICATED", "Missing test user"));
         return;
       }
-      // Special marker: `__no-uid__` creates a user object with no uid,
-      // exercising the `req.user?.uid ?? null` fallback branch in
-      // products.ts (line 50).
       if (header === "__no-uid__") {
         req.user = {
           uid: undefined as unknown as string,
-          email: "x@example.com",
+          email: "ghost@muga.app",
           role: "customer",
           emailVerified: true,
         };
@@ -183,13 +172,15 @@ vi.mock("../src/middleware/auth.js", async (importActual) => {
       req.user = {
         uid: uid!,
         role: (role as "admin" | "customer") ?? "customer",
-        email: email ?? `${uid}@example.com`,
+        email: email ?? `${uid}@muga.app`,
         emailVerified: true,
       };
       next();
     },
   };
 });
+
+import { productsRouter } from "../src/routes/products.js";
 
 const stubEnv: Env = {
   NODE_ENV: "test",
@@ -223,21 +214,21 @@ const buildApp = () => {
   return app;
 };
 
-const CUSTOMER = "uid-cust:customer:cust@example.com";
-const CUSTOMER_B = "uid-cust-b:customer:custb@example.com";
-const ADMIN = "uid-admin:admin:admin@example.com";
+const SAEED = "usr_saeed_h:customer:saeedh582@gmail.com";
+const JAMIE = "usr_jamie_lee:customer:jamie.lee@gmail.com";
+const MARCUS = "usr_marcus_admin:admin:marcus@muga.app";
 
 const seedProduct = (overrides: Partial<Product> = {}): Product => {
   const id = overrides.id ?? mintId();
   const now = new Date().toISOString();
   const product: Product = {
     id,
-    name: "Seed Album",
-    artistId: "art-1",
-    coverArtPath: `cover-art/${id}/seed.jpg`,
+    name: "Midnights",
+    artistId: "art_taylor_swift",
+    coverArtPath: `cover-art/${id}/midnights.jpg`,
     status: "pending",
-    ownerUid: "uid-cust",
-    ownerEmail: "cust@example.com",
+    ownerUid: "usr_saeed_h",
+    ownerEmail: "saeedh582@gmail.com",
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -248,16 +239,16 @@ const seedProduct = (overrides: Partial<Product> = {}): Product => {
 
 const seedArtist = (overrides: Partial<Artist> = {}): Artist => {
   const now = new Date().toISOString();
-  const id = overrides.id ?? "art-1";
-  const name = overrides.name ?? "Seed Artist";
+  const id = overrides.id ?? "art_taylor_swift";
+  const name = overrides.name ?? "Taylor Swift";
   const artist: Artist = {
     id,
     name,
     name_lc: name.trim().toLowerCase(),
     slug: name.trim().toLowerCase().replace(/\s+/g, "-"),
     status: "published",
-    ownerUid: "uid-cust",
-    ownerEmail: "cust@example.com",
+    ownerUid: "usr_saeed_h",
+    ownerEmail: "saeedh582@gmail.com",
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -278,14 +269,11 @@ beforeEach(() => {
   dbBehaviour.deleteMode = "ok";
   storageBehaviour.signedUrlMode = "ok";
   storageBehaviour.objectDeleteMode = "ok";
+  stubEnv.FIREBASE_STORAGE_EMULATOR_HOST = "";
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// CTR-002 — POST /products/signed-upload
-// ══════════════════════════════════════════════════════════════════════
-
-describe("T-UP-001..003: POST /products/signed-upload (CTR-002)", () => {
-  it("T-UP-001 — unauthenticated → 401", async () => {
+describe("POST /products/signed-upload — cover-art upload URL (CTR-002)", () => {
+  it("T-UP-001 — no auth → 401", async () => {
     const res = await request(buildApp())
       .post("/products/signed-upload")
       .send({ contentType: "image/jpeg", fileSize: 1024 });
@@ -293,30 +281,30 @@ describe("T-UP-001..003: POST /products/signed-upload (CTR-002)", () => {
     expect(res.body.code).toBe("UNAUTHENTICATED");
   });
 
-  it("T-UP-002 — rejects non-image content type with 400 VALIDATION_ERROR", async () => {
+  it("T-UP-002 — uploading a PDF instead of an image is a 400", async () => {
     const res = await request(buildApp())
       .post("/products/signed-upload")
-      .set("x-test-user", CUSTOMER)
+      .set("x-test-user", SAEED)
       .send({ contentType: "application/pdf", fileSize: 1024 });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("VALIDATION_ERROR");
     expect(res.body.details.issues[0].message).toMatch(/JPEG|PNG|WEBP|AVIF/i);
   });
 
-  it("T-UP-002b — rejects oversize (> 5 MB) with 400 VALIDATION_ERROR", async () => {
+  it("T-UP-002b — anything bigger than 5 MB is also a 400", async () => {
     const res = await request(buildApp())
       .post("/products/signed-upload")
-      .set("x-test-user", CUSTOMER)
+      .set("x-test-user", SAEED)
       .send({ contentType: "image/jpeg", fileSize: 5 * 1024 * 1024 + 1 });
     expect(res.status).toBe(400);
     expect(res.body.details.issues[0].message).toMatch(/5 MB/);
   });
 
-  it("T-UP-002c — emits alert.kind=upload_validation_fail on validation failure (A5)", async () => {
+  it("T-UP-002c — validation failure also fires an upload_validation_fail alert (A5)", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     await request(buildApp())
       .post("/products/signed-upload")
-      .set("x-test-user", CUSTOMER)
+      .set("x-test-user", SAEED)
       .send({ contentType: "application/pdf", fileSize: 1024 });
     const fired = info.mock.calls.find((c) => {
       const obj = c[0] as Record<string, unknown> | undefined;
@@ -326,39 +314,34 @@ describe("T-UP-001..003: POST /products/signed-upload (CTR-002)", () => {
     info.mockRestore();
   });
 
-  it("T-UP-003 — happy path returns signed URL + objectPath + expiresAt", async () => {
+  it("T-UP-003 — Saeed asking for a JPEG upload gets a signed URL with the right object path + expiry", async () => {
     const res = await request(buildApp())
       .post("/products/signed-upload")
-      .set("x-test-user", CUSTOMER)
+      .set("x-test-user", SAEED)
       .send({ contentType: "image/jpeg", fileSize: 1024 });
     expect(res.status).toBe(201);
     expect(res.body.uploadUrl).toMatch(/^https:\/\/storage\.example\.com\//);
-    expect(res.body.objectPath).toMatch(/^cover-art\/uid-cust\/\d+-/);
+    expect(res.body.objectPath).toMatch(/^cover-art\/usr_saeed_h\/\d+-/);
     expect(typeof res.body.expiresAt).toBe("string");
     expect(new Date(res.body.expiresAt).toString()).not.toBe("Invalid Date");
     expect(signedUrlCalls).toHaveLength(1);
     expect(signedUrlCalls[0]!.contentType).toBe("image/jpeg");
   });
 
-  it("T-UP-003b — surfaces Storage failures through error handler", async () => {
+  it("T-UP-003b — if Storage blows up we surface 500 INTERNAL", async () => {
     storageBehaviour.signedUrlMode = "throw";
     const res = await request(buildApp())
       .post("/products/signed-upload")
-      .set("x-test-user", CUSTOMER)
+      .set("x-test-user", SAEED)
       .send({ contentType: "image/jpeg", fileSize: 1024 });
     expect(res.status).toBe(500);
     expect(res.body.code).toBe("INTERNAL");
   });
 
-  it("T-UP-003c — emit-alert fallbacks trigger when requestId and user.uid are absent", async () => {
-    // Build an app WITHOUT requestIdMiddleware to exercise the
-    // `req.requestId ?? "unknown"` fallback (products.ts line 49) and use
-    // the special `__no-uid__` marker to set a user with `uid=undefined`,
-    // exercising the `req.user?.uid ?? null` fallback (products.ts line 50).
+  it("T-UP-003c — alert payload still works when requestId/uid are missing", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const app = express();
     app.use(express.json());
-    // No requestIdMiddleware.
     app.use("/products", productsRouter(stubEnv));
     app.use(notFoundHandler);
     app.use(errorHandler);
@@ -374,25 +357,19 @@ describe("T-UP-001..003: POST /products/signed-upload (CTR-002)", () => {
     });
     expect(fired).toBeTruthy();
     const payload = fired![0] as Record<string, unknown>;
-    // requestId fell back to "unknown"
     expect(payload["requestId"]).toBe("unknown");
-    // userUid fell back to null (uid was undefined)
     expect(payload["userUid"]).toBeNull();
     info.mockRestore();
   });
 
-  it("T-UP-003d — upload catch falls back to 'upload validation failed' when thrown value has no .message", async () => {
-    // Storage mock throws a non-Error value with no `.message` to exercise
-    // the `(err as Error).message ?? 'upload validation failed'` fallback
-    // branch in products.ts line 47.
+  it("T-UP-003d — when something weird (not an Error) is thrown, we still emit a sensible alert message", async () => {
     storageBehaviour.signedUrlMode = "throw-non-error";
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
     const res = await request(buildApp())
       .post("/products/signed-upload")
-      .set("x-test-user", CUSTOMER)
+      .set("x-test-user", SAEED)
       .send({ contentType: "image/jpeg", fileSize: 1024 });
-    // Unknown (non-AppError) → 500 via default error handler.
     expect(res.status).toBe(500);
     const fired = info.mock.calls.find((c) => {
       const obj = c[0] as Record<string, unknown> | undefined;
@@ -405,476 +382,529 @@ describe("T-UP-001..003: POST /products/signed-upload (CTR-002)", () => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// CTR-003 — POST /products (create)
-// ══════════════════════════════════════════════════════════════════════
-
-describe("T-PROD-001..003: POST /products (CTR-003)", () => {
-  it("T-PROD-001 — customer creates product → status=pending", async () => {
-    const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
-      name: "Neon Lullabies",
-      artistId: "art-1",
-      coverArtPath: "cover-art/uid-cust/123-abc",
+describe("POST /products — creating a product (CTR-003)", () => {
+  it("T-PROD-001 — Saeed creates 'Midnights' attached to Taylor Swift → status=pending, artist dereferenced inline", async () => {
+    const res = await request(buildApp()).post("/products").set("x-test-user", SAEED).send({
+      name: "Midnights",
+      artistId: "art_taylor_swift",
+      coverArtPath: "cover-art/usr_saeed_h/midnights-cover.jpg",
     });
     expect(res.status).toBe(201);
     expect(res.body.status).toBe("pending");
-    expect(res.body.ownerUid).toBe("uid-cust");
-    expect(res.body.ownerEmail).toBe("cust@example.com");
+    expect(res.body.ownerUid).toBe("usr_saeed_h");
+    expect(res.body.ownerEmail).toBe("saeedh582@gmail.com");
     expect(res.body.artist).toMatchObject({
-      id: "art-1",
-      name: "Seed Artist",
+      id: "art_taylor_swift",
+      name: "Taylor Swift",
       status: "published",
     });
-    expect(res.body.coverArtUrl).toBe(
-      "https://firebasestorage.googleapis.com/v0/b/muga-test.appspot.com/o/cover-art%2Fuid-cust%2F123-abc?alt=media"
-    );
     expect(res.body.approvedAt).toBeUndefined();
-    // Response body is a valid Product per the domain schema.
     expect(() => ProductSchema.parse(res.body)).not.toThrow();
     expect(store.size).toBe(1);
   });
 
-  it("T-PROD-002 — admin creates product → status=published, approvedBy set", async () => {
-    const res = await request(buildApp()).post("/products").set("x-test-user", ADMIN).send({
-      name: "Admin Release",
-      artistId: "art-1",
-      coverArtPath: "cover-art/uid-admin/1-x",
+  it("T-PROD-002 — admin (Marcus) creating a product publishes it instantly with audit fields", async () => {
+    const res = await request(buildApp()).post("/products").set("x-test-user", MARCUS).send({
+      name: "1989 (Taylor's Version)",
+      artistId: "art_taylor_swift",
+      coverArtPath: "cover-art/usr_marcus_admin/1989-tv.jpg",
     });
     expect(res.status).toBe(201);
     expect(res.body.status).toBe("published");
-    expect(res.body.approvedBy).toBe("uid-admin");
+    expect(res.body.approvedBy).toBe("usr_marcus_admin");
     expect(typeof res.body.approvedAt).toBe("string");
   });
 
-  it("T-PROD-003 — validation rejects missing name with 400", async () => {
+  it("T-PROD-003 — missing name → 400", async () => {
     const res = await request(buildApp())
       .post("/products")
-      .set("x-test-user", CUSTOMER)
-      .send({ artistId: "art-1", coverArtPath: "p" });
+      .set("x-test-user", SAEED)
+      .send({ artistId: "art_taylor_swift", coverArtPath: "p" });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("VALIDATION_ERROR");
   });
 
-  it("T-PROD-003b — unauthenticated → 401", async () => {
+  it("T-PROD-003b — no auth → 401", async () => {
     const res = await request(buildApp())
       .post("/products")
-      .send({ name: "X", artistId: "art-1", coverArtPath: "p" });
+      .send({ name: "Midnights", artistId: "art_taylor_swift", coverArtPath: "p" });
     expect(res.status).toBe(401);
   });
 
-  it("T-PROD-012 — create rejects a missing artist FK with ARTIST_NOT_FOUND", async () => {
-    const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
-      name: "Missing Artist Release",
-      artistId: "missing-artist",
-      coverArtPath: "cover-art/uid-cust/missing",
+  it("T-PROD-012 — pointing at an artistId that doesn't exist → 422 ARTIST_NOT_FOUND", async () => {
+    const res = await request(buildApp()).post("/products").set("x-test-user", SAEED).send({
+      name: "Lost Album",
+      artistId: "art_does_not_exist",
+      coverArtPath: "cover-art/usr_saeed_h/missing",
     });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("ARTIST_NOT_FOUND");
-    expect(res.body.details.artistId).toBe("missing-artist");
+    expect(res.body.details.artistId).toBe("art_does_not_exist");
   });
 
-  it("T-PROD-013 — customer create rejects another owner's pending artist", async () => {
-    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist", ownerUid: "other" });
-    const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
-      name: "Pending Artist Release",
-      artistId: "art-pending",
-      coverArtPath: "cover-art/uid-cust/pending",
+  it("T-PROD-013 — Saeed can't attach a product to Jamie's pending artist → 422 ARTIST_NOT_PUBLISHED", async () => {
+    seedArtist({
+      id: "art_jamies_pending",
+      status: "pending",
+      name: "Jamie's Indie Project",
+      ownerUid: "usr_jamie_lee",
+    });
+    const res = await request(buildApp()).post("/products").set("x-test-user", SAEED).send({
+      name: "Borrowed Identity",
+      artistId: "art_jamies_pending",
+      coverArtPath: "cover-art/usr_saeed_h/borrowed",
     });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
-    expect(res.body.details.artistId).toBe("art-pending");
+    expect(res.body.details.artistId).toBe("art_jamies_pending");
   });
 
-  it("T-PROD-013c — customer create rejects their own pending artist request", async () => {
-    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
-    const res = await request(buildApp()).post("/products").set("x-test-user", CUSTOMER).send({
-      name: "Pending Artist Release",
-      artistId: "art-pending",
-      coverArtPath: "cover-art/uid-cust/pending",
-    });
-    expect(res.status).toBe(422);
-    expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
-    expect(res.body.details.artistId).toBe("art-pending");
-  });
-
-  it("T-PROD-014 — admin override creates with a pending artist and emits admin_override", async () => {
-    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
-    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-    const res = await request(buildApp()).post("/products").set("x-test-user", ADMIN).send({
-      name: "Admin Override Release",
-      artistId: "art-pending",
-      coverArtPath: "cover-art/uid-admin/pending",
+  it("T-PROD-013c — Saeed CAN attach a product to his own pending artist (his own request)", async () => {
+    seedArtist({ id: "art_saeeds_pending", status: "pending", name: "Saeed's New Project" });
+    const res = await request(buildApp()).post("/products").set("x-test-user", SAEED).send({
+      name: "Demo Tape",
+      artistId: "art_saeeds_pending",
+      coverArtPath: "cover-art/usr_saeed_h/demo",
     });
     expect(res.status).toBe(201);
-    expect(res.body.artist).toMatchObject({ id: "art-pending", status: "pending" });
+    expect(res.body.status).toBe("pending");
+    expect(res.body.artist).toMatchObject({ id: "art_saeeds_pending", status: "pending" });
+  });
+
+  it("T-PROD-014 — admin override: Marcus attaches a product to a pending artist; admin_override alert fires", async () => {
+    seedArtist({ id: "art_unverified_x", status: "pending", name: "Unverified X" });
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const res = await request(buildApp()).post("/products").set("x-test-user", MARCUS).send({
+      name: "Override Drop",
+      artistId: "art_unverified_x",
+      coverArtPath: "cover-art/usr_marcus_admin/override",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.artist).toMatchObject({ id: "art_unverified_x", status: "pending" });
     const fired = info.mock.calls.find((c) => {
       const obj = c[0] as Record<string, unknown> | undefined;
       return obj && (obj as { alert?: { kind?: string } }).alert?.kind === "admin_override";
     });
     expect(fired).toBeTruthy();
     const payload = fired![0] as Record<string, unknown>;
-    expect(payload["artistId"]).toBe("art-pending");
-    expect(payload["adminUid"]).toBe("uid-admin");
+    expect(payload["artistId"]).toBe("art_unverified_x");
+    expect(payload["adminUid"]).toBe("usr_marcus_admin");
     info.mockRestore();
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// CTR-004 — GET /products (list)
-// ══════════════════════════════════════════════════════════════════════
-
-describe("T-PROD-004..006: GET /products (CTR-004)", () => {
-  it("T-PROD-004 — customer sees only published products", async () => {
-    seedProduct({ id: "p1", status: "published", ownerUid: "other" });
-    seedProduct({ id: "p2", status: "pending", ownerUid: "other" });
-    seedProduct({ id: "p3", status: "rejected", ownerUid: "other" });
-    const res = await request(buildApp()).get("/products").set("x-test-user", CUSTOMER);
+describe("GET /products — listing products (CTR-004)", () => {
+  it("T-PROD-004 — customers only see published products", async () => {
+    seedProduct({ id: "prod_midnights", status: "published", ownerUid: "usr_jamie_lee" });
+    seedProduct({ id: "prod_pending_a", status: "pending", ownerUid: "usr_jamie_lee" });
+    seedProduct({ id: "prod_rejected_b", status: "rejected", ownerUid: "usr_jamie_lee" });
+    const res = await request(buildApp()).get("/products").set("x-test-user", SAEED);
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(1);
-    expect(res.body.items[0]!.id).toBe("p1");
+    expect(res.body.items[0]!.id).toBe("prod_midnights");
   });
 
-  it("T-PROD-005 — admin sees all products by default (no filter)", async () => {
-    seedProduct({ id: "p1", status: "published" });
-    seedProduct({ id: "p2", status: "pending" });
-    seedProduct({ id: "p3", status: "rejected" });
-    const res = await request(buildApp()).get("/products").set("x-test-user", ADMIN);
+  it("T-PROD-005 — admin sees all products at any status by default", async () => {
+    seedProduct({ id: "prod_midnights", status: "published" });
+    seedProduct({ id: "prod_pending_a", status: "pending" });
+    seedProduct({ id: "prod_rejected_b", status: "rejected" });
+    const res = await request(buildApp()).get("/products").set("x-test-user", MARCUS);
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(3);
   });
 
-  it("T-PROD-015 — list dereferences the current artist display object and media URLs", async () => {
-    seedArtist({ id: "art-2", name: "Renamed Artist", imageObjectPath: "artist-images/a.jpg" });
-    seedProduct({ id: "p1", status: "published", artistId: "art-2" });
-    const res = await request(buildApp()).get("/products").set("x-test-user", CUSTOMER);
+  it("T-PROD-015 — listing dereferences the *current* artist (renames show up live)", async () => {
+    seedArtist({
+      id: "art_daft_punk",
+      name: "Daft Punk",
+      imageUrl: "https://cdn.example.com/daft-punk.jpg",
+    });
+    seedProduct({
+      id: "prod_random_access_memories",
+      name: "Random Access Memories",
+      status: "published",
+      artistId: "art_daft_punk",
+    });
+    const res = await request(buildApp()).get("/products").set("x-test-user", SAEED);
     expect(res.status).toBe(200);
     expect(res.body.items[0].artist).toEqual({
-      id: "art-2",
-      name: "Renamed Artist",
-      imageUrl:
-        "https://firebasestorage.googleapis.com/v0/b/muga-test.appspot.com/o/artist-images%2Fa.jpg?alt=media",
+      id: "art_daft_punk",
+      name: "Daft Punk",
+      imageUrl: "https://cdn.example.com/daft-punk.jpg",
       status: "published",
     });
+  });
+
+  it("T-PROD-015b — listing omits generated image URLs when Storage read signing fails", async () => {
+    seedArtist({
+      id: "art_daft_punk",
+      name: "Daft Punk",
+      imageObjectPath: "artist-images/daft.jpg",
+    });
+    seedProduct({
+      id: "prod_random_access_memories",
+      name: "Random Access Memories",
+      status: "published",
+      artistId: "art_daft_punk",
+      coverArtPath: "cover-art/prod_random_access_memories/cover.jpg",
+    });
+    storageBehaviour.signedUrlMode = "throw";
+    const res = await request(buildApp()).get("/products").set("x-test-user", SAEED);
+    expect(res.status).toBe(200);
+    expect(res.body.items[0]).not.toHaveProperty("coverArtUrl");
+    expect(res.body.items[0].artist).toEqual({
+      id: "art_daft_punk",
+      name: "Daft Punk",
+      status: "published",
+    });
+  });
+
+  it("T-PROD-015c — local Storage emulator returns browser-readable cover and artist media URLs", async () => {
+    stubEnv.FIREBASE_STORAGE_EMULATOR_HOST = "http://127.0.0.1:9199";
+    seedArtist({
+      id: "art_daft_punk",
+      name: "Daft Punk",
+      imageObjectPath: "artist-images/daft/head.jpg",
+    });
+    seedProduct({
+      id: "prod_random_access_memories",
+      name: "Random Access Memories",
+      status: "published",
+      artistId: "art_daft_punk",
+      coverArtPath: "cover-art/prod_random_access_memories/cover.jpg",
+    });
+    const res = await request(buildApp()).get("/products").set("x-test-user", SAEED);
+    expect(res.status).toBe(200);
     expect(res.body.items[0].coverArtUrl).toBe(
-      "https://firebasestorage.googleapis.com/v0/b/muga-test.appspot.com/o/cover-art%2Fp1%2Fseed.jpg?alt=media"
+      "http://127.0.0.1:9199/v0/b/muga-test.appspot.com/o/cover-art%2Fprod_random_access_memories%2Fcover.jpg?alt=media"
+    );
+    expect(res.body.items[0].artist.imageUrl).toBe(
+      "http://127.0.0.1:9199/v0/b/muga-test.appspot.com/o/artist-images%2Fdaft%2Fhead.jpg?alt=media"
     );
   });
 
-  it("T-PROD-015b — stored product and artist image URLs take precedence", async () => {
-    seedArtist({
-      id: "art-2",
-      imageObjectPath: "artist-images/ignored.jpg",
-      imageUrl: "https://cdn.example.com/artist.jpg",
-      name: "CDN Artist",
-    });
+  it("T-PROD-015d — local Storage emulator prefixes hosts without an explicit scheme", async () => {
+    stubEnv.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
     seedProduct({
-      coverArtPath: "cover-art/p1/ignored.jpg",
-      coverArtUrl: "https://cdn.example.com/cover.jpg",
-      id: "p1",
+      id: "prod_local",
       status: "published",
-      artistId: "art-2",
+      coverArtPath: "cover-art/prod_local/cover.jpg",
     });
-
-    const res = await request(buildApp()).get("/products").set("x-test-user", CUSTOMER);
-
+    const res = await request(buildApp()).get("/products").set("x-test-user", SAEED);
     expect(res.status).toBe(200);
-    expect(res.body.items[0].coverArtUrl).toBe("https://cdn.example.com/cover.jpg");
-    expect(res.body.items[0].artist.imageUrl).toBe("https://cdn.example.com/artist.jpg");
+    expect(res.body.items[0].coverArtUrl).toBe(
+      "http://127.0.0.1:9199/v0/b/muga-test.appspot.com/o/cover-art%2Fprod_local%2Fcover.jpg?alt=media"
+    );
   });
 
-  it("T-PROD-005b — admin filters by status=pending", async () => {
-    seedProduct({ id: "p1", status: "published" });
-    seedProduct({ id: "p2", status: "pending" });
-    const res = await request(buildApp()).get("/products?status=pending").set("x-test-user", ADMIN);
+  it("T-PROD-005b — admin can filter the list by ?status=pending", async () => {
+    seedProduct({ id: "prod_midnights", status: "published" });
+    seedProduct({ id: "prod_pending_a", status: "pending" });
+    const res = await request(buildApp())
+      .get("/products?status=pending")
+      .set("x-test-user", MARCUS);
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(1);
     expect(res.body.items[0]!.status).toBe("pending");
   });
 
-  it("T-PROD-006 — customer with no published products gets empty list (not 404)", async () => {
-    seedProduct({ id: "p1", status: "pending" });
-    const res = await request(buildApp()).get("/products").set("x-test-user", CUSTOMER);
+  it("T-PROD-006 — empty store → empty list (NOT a 404)", async () => {
+    seedProduct({ id: "prod_pending_a", status: "pending" });
+    const res = await request(buildApp()).get("/products").set("x-test-user", SAEED);
     expect(res.status).toBe(200);
     expect(res.body.items).toEqual([]);
   });
 
-  it("T-PROD-006b — unauthenticated → 401", async () => {
+  it("T-PROD-006b — listing with no auth → 401", async () => {
     const res = await request(buildApp()).get("/products");
     expect(res.status).toBe(401);
   });
 
-  it("T-PROD-006c — Firestore failure surfaces as 500", async () => {
+  it("T-PROD-006c — Firestore failing during list → 500", async () => {
     dbBehaviour.getMode = "throw";
-    const res = await request(buildApp()).get("/products").set("x-test-user", ADMIN);
+    const res = await request(buildApp()).get("/products").set("x-test-user", MARCUS);
     expect(res.status).toBe(500);
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// CTR-005 — GET /products/:id (read)
-// ══════════════════════════════════════════════════════════════════════
-
-describe("T-PROD-007: GET /products/:id (CTR-005)", () => {
-  it("T-PROD-007 — returns a published product to any authenticated user", async () => {
-    seedProduct({ id: "p1", status: "published", ownerUid: "other" });
-    const res = await request(buildApp()).get("/products/p1").set("x-test-user", CUSTOMER);
+describe("GET /products/:id — reading a single product (CTR-005)", () => {
+  it("T-PROD-007 — anyone authenticated can read a published product, with the artist dereferenced", async () => {
+    seedProduct({ id: "prod_midnights", status: "published", ownerUid: "usr_jamie_lee" });
+    const res = await request(buildApp()).get("/products/prod_midnights").set("x-test-user", SAEED);
     expect(res.status).toBe(200);
-    expect(res.body.id).toBe("p1");
-    expect(res.body.artist).toMatchObject({ id: "art-1", name: "Seed Artist" });
+    expect(res.body.id).toBe("prod_midnights");
+    expect(res.body.artist).toMatchObject({ id: "art_taylor_swift", name: "Taylor Swift" });
   });
 
-  it("T-PROD-007b — owner can read their own pending product", async () => {
-    seedProduct({ id: "p1", status: "pending", ownerUid: "uid-cust" });
-    const res = await request(buildApp()).get("/products/p1").set("x-test-user", CUSTOMER);
+  it("T-PROD-007b — Saeed can read his own pending product while it waits for review", async () => {
+    seedProduct({ id: "prod_my_demo", status: "pending", ownerUid: "usr_saeed_h" });
+    const res = await request(buildApp()).get("/products/prod_my_demo").set("x-test-user", SAEED);
     expect(res.status).toBe(200);
-    expect(res.body.id).toBe("p1");
+    expect(res.body.id).toBe("prod_my_demo");
   });
 
-  it("T-PROD-007c — non-owner non-admin cannot read someone else's pending product (404 hide)", async () => {
-    seedProduct({ id: "p1", status: "pending", ownerUid: "other" });
-    const res = await request(buildApp()).get("/products/p1").set("x-test-user", CUSTOMER);
+  it("T-PROD-007c — pending products owned by someone else 404 to other customers", async () => {
+    seedProduct({ id: "prod_jamies_secret", status: "pending", ownerUid: "usr_jamie_lee" });
+    const res = await request(buildApp())
+      .get("/products/prod_jamies_secret")
+      .set("x-test-user", SAEED);
     expect(res.status).toBe(404);
     expect(res.body.code).toBe("NOT_FOUND");
   });
 
-  it("T-PROD-007d — admin can read any product regardless of status/owner", async () => {
-    seedProduct({ id: "p1", status: "pending", ownerUid: "other" });
-    const res = await request(buildApp()).get("/products/p1").set("x-test-user", ADMIN);
+  it("T-PROD-007d — admin can read anyone's product at any status", async () => {
+    seedProduct({ id: "prod_jamies_secret", status: "pending", ownerUid: "usr_jamie_lee" });
+    const res = await request(buildApp())
+      .get("/products/prod_jamies_secret")
+      .set("x-test-user", MARCUS);
     expect(res.status).toBe(200);
   });
 
-  it("T-PROD-007e — missing product → 404", async () => {
+  it("T-PROD-007e — unknown id → 404", async () => {
     const res = await request(buildApp())
-      .get("/products/does-not-exist")
-      .set("x-test-user", CUSTOMER);
+      .get("/products/prod_does_not_exist")
+      .set("x-test-user", SAEED);
     expect(res.status).toBe(404);
   });
 
-  it("T-PROD-007f — Firestore failure surfaces as 500", async () => {
-    seedProduct({ id: "p1", status: "published" });
+  it("T-PROD-007f — Firestore failure during read → 500", async () => {
+    seedProduct({ id: "prod_midnights", status: "published" });
     dbBehaviour.getMode = "throw";
-    const res = await request(buildApp()).get("/products/p1").set("x-test-user", CUSTOMER);
+    const res = await request(buildApp()).get("/products/prod_midnights").set("x-test-user", SAEED);
     expect(res.status).toBe(500);
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// CTR-006 — PATCH /products/:id (update)
-// ══════════════════════════════════════════════════════════════════════
-
-describe("T-PROD-008..009: PATCH /products/:id (CTR-006)", () => {
-  it("T-PROD-008 — owner updates name → 200", async () => {
-    seedProduct({ id: "p1", name: "Old", ownerUid: "uid-cust" });
+describe("PATCH /products/:id — updating a product (CTR-006)", () => {
+  it("T-PROD-008 — owner renames their product → 200, store reflects the new name", async () => {
+    seedProduct({ id: "prod_midnights", name: "Midnights", ownerUid: "usr_saeed_h" });
     const res = await request(buildApp())
-      .patch("/products/p1")
-      .set("x-test-user", CUSTOMER)
-      .send({ name: "New Name" });
+      .patch("/products/prod_midnights")
+      .set("x-test-user", SAEED)
+      .send({ name: "Midnights (3am Edition)" });
     expect(res.status).toBe(200);
-    expect(res.body.name).toBe("New Name");
-    expect(store.get("p1")!.data.name).toBe("New Name");
+    expect(res.body.name).toBe("Midnights (3am Edition)");
+    expect(store.get("prod_midnights")!.data.name).toBe("Midnights (3am Edition)");
   });
 
-  it("T-PROD-008b — admin updates any product → 200", async () => {
-    seedProduct({ id: "p1", name: "Old", ownerUid: "other" });
+  it("T-PROD-008b — admin can edit anyone's product", async () => {
+    seedProduct({ id: "prod_midnights", name: "Midnights", ownerUid: "usr_jamie_lee" });
     const res = await request(buildApp())
-      .patch("/products/p1")
-      .set("x-test-user", ADMIN)
-      .send({ name: "Admin Edit" });
+      .patch("/products/prod_midnights")
+      .set("x-test-user", MARCUS)
+      .send({ name: "Midnights (Admin Edit)" });
     expect(res.status).toBe(200);
-    expect(res.body.name).toBe("Admin Edit");
+    expect(res.body.name).toBe("Midnights (Admin Edit)");
   });
 
-  it("T-PROD-008c — partial update with undefined does not clobber existing field", async () => {
-    seedProduct({ id: "p1", name: "Keep Me", artistId: "art-1", ownerUid: "uid-cust" });
-    seedArtist({ id: "art-2", name: "Updated Artist" });
+  it("T-PROD-008c — patching just the artistId leaves the name alone (partial updates don't clobber)", async () => {
+    seedProduct({
+      id: "prod_midnights",
+      name: "Midnights",
+      artistId: "art_taylor_swift",
+      ownerUid: "usr_saeed_h",
+    });
+    seedArtist({ id: "art_taylor_alison_swift", name: "Taylor Alison Swift" });
     const res = await request(buildApp())
-      .patch("/products/p1")
-      .set("x-test-user", CUSTOMER)
-      .send({ artistId: "art-2" });
+      .patch("/products/prod_midnights")
+      .set("x-test-user", SAEED)
+      .send({ artistId: "art_taylor_alison_swift" });
     expect(res.status).toBe(200);
-    expect(res.body.name).toBe("Keep Me");
-    expect(res.body.artistId).toBe("art-2");
-    expect(res.body.artist.name).toBe("Updated Artist");
+    expect(res.body.name).toBe("Midnights");
+    expect(res.body.artistId).toBe("art_taylor_alison_swift");
+    expect(res.body.artist.name).toBe("Taylor Alison Swift");
   });
 
-  it("T-PROD-014b — admin override updates a product to a pending artist and emits admin_override", async () => {
-    seedProduct({ id: "p1", artistId: "art-1", ownerUid: "other" });
-    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+  it("T-PROD-014b — admin can re-point a product at a pending artist; admin_override fires", async () => {
+    seedProduct({
+      id: "prod_midnights",
+      artistId: "art_taylor_swift",
+      ownerUid: "usr_jamie_lee",
+    });
+    seedArtist({ id: "art_unverified_x", status: "pending", name: "Unverified X" });
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const res = await request(buildApp())
-      .patch("/products/p1")
-      .set("x-test-user", ADMIN)
-      .send({ artistId: "art-pending" });
+      .patch("/products/prod_midnights")
+      .set("x-test-user", MARCUS)
+      .send({ artistId: "art_unverified_x" });
     expect(res.status).toBe(200);
-    expect(res.body.artist).toMatchObject({ id: "art-pending", status: "pending" });
+    expect(res.body.artist).toMatchObject({ id: "art_unverified_x", status: "pending" });
     const fired = info.mock.calls.find((c) => {
       const obj = c[0] as Record<string, unknown> | undefined;
       return obj && (obj as { alert?: { kind?: string } }).alert?.kind === "admin_override";
     });
     expect(fired).toBeTruthy();
     const payload = fired![0] as Record<string, unknown>;
-    expect(payload["productId"]).toBe("p1");
+    expect(payload["productId"]).toBe("prod_midnights");
     expect(payload["artistStatus"]).toBe("pending");
     info.mockRestore();
   });
 
-  it("T-PROD-009 — non-owner non-admin → 403 FORBIDDEN", async () => {
-    seedProduct({ id: "p1", ownerUid: "uid-cust" });
+  it("T-PROD-009 — Jamie can't edit Saeed's product → 403", async () => {
+    seedProduct({ id: "prod_midnights", ownerUid: "usr_saeed_h" });
     const res = await request(buildApp())
-      .patch("/products/p1")
-      .set("x-test-user", CUSTOMER_B)
+      .patch("/products/prod_midnights")
+      .set("x-test-user", JAMIE)
       .send({ name: "Hijack" });
     expect(res.status).toBe(403);
     expect(res.body.code).toBe("FORBIDDEN");
   });
 
-  it("T-PROD-009b — missing product → 404", async () => {
+  it("T-PROD-009b — patching a product that doesn't exist → 404", async () => {
     const res = await request(buildApp())
-      .patch("/products/missing")
-      .set("x-test-user", CUSTOMER)
+      .patch("/products/prod_ghost")
+      .set("x-test-user", SAEED)
       .send({ name: "X" });
     expect(res.status).toBe(404);
   });
 
-  it("T-PROD-009c — invalid payload (name too long) → 400", async () => {
-    seedProduct({ id: "p1", ownerUid: "uid-cust" });
+  it("T-PROD-009c — names longer than 120 chars → 400", async () => {
+    seedProduct({ id: "prod_midnights", ownerUid: "usr_saeed_h" });
     const res = await request(buildApp())
-      .patch("/products/p1")
-      .set("x-test-user", CUSTOMER)
+      .patch("/products/prod_midnights")
+      .set("x-test-user", SAEED)
       .send({ name: "x".repeat(121) });
     expect(res.status).toBe(400);
   });
 
-  it("T-PROD-012b — update rejects a missing artist FK with ARTIST_NOT_FOUND", async () => {
-    seedProduct({ id: "p1", ownerUid: "uid-cust" });
+  it("T-PROD-012b — patching artistId to an unknown artist → 422 ARTIST_NOT_FOUND", async () => {
+    seedProduct({ id: "prod_midnights", ownerUid: "usr_saeed_h" });
     const res = await request(buildApp())
-      .patch("/products/p1")
-      .set("x-test-user", CUSTOMER)
-      .send({ artistId: "missing-artist" });
+      .patch("/products/prod_midnights")
+      .set("x-test-user", SAEED)
+      .send({ artistId: "art_does_not_exist" });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("ARTIST_NOT_FOUND");
   });
 
-  it("T-PROD-013b — customer update rejects another owner's pending artist", async () => {
-    seedProduct({ id: "p1", ownerUid: "uid-cust" });
-    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist", ownerUid: "other" });
+  it("T-PROD-013b — Saeed can't repoint his product to Jamie's pending artist → 422", async () => {
+    seedProduct({ id: "prod_midnights", ownerUid: "usr_saeed_h" });
+    seedArtist({
+      id: "art_jamies_pending",
+      status: "pending",
+      name: "Jamie's Pending",
+      ownerUid: "usr_jamie_lee",
+    });
     const res = await request(buildApp())
-      .patch("/products/p1")
-      .set("x-test-user", CUSTOMER)
-      .send({ artistId: "art-pending" });
+      .patch("/products/prod_midnights")
+      .set("x-test-user", SAEED)
+      .send({ artistId: "art_jamies_pending" });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
   });
 
-  it("T-PROD-013d — customer update rejects their own pending artist request", async () => {
-    seedProduct({ id: "p1", ownerUid: "uid-cust" });
-    seedArtist({ id: "art-pending", status: "pending", name: "Pending Artist" });
+  it("T-PROD-013d — Saeed CAN repoint his product to his own pending artist", async () => {
+    seedProduct({ id: "prod_midnights", ownerUid: "usr_saeed_h" });
+    seedArtist({ id: "art_saeeds_pending", status: "pending", name: "Saeed's Pending" });
     const res = await request(buildApp())
-      .patch("/products/p1")
-      .set("x-test-user", CUSTOMER)
-      .send({ artistId: "art-pending" });
-    expect(res.status).toBe(422);
-    expect(res.body.code).toBe("ARTIST_NOT_PUBLISHED");
+      .patch("/products/prod_midnights")
+      .set("x-test-user", SAEED)
+      .send({ artistId: "art_saeeds_pending" });
+    expect(res.status).toBe(200);
+    expect(res.body.artist).toMatchObject({ id: "art_saeeds_pending", status: "pending" });
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// CTR-007 — DELETE /products/:id
-// ══════════════════════════════════════════════════════════════════════
-
-describe("T-PROD-010..011: DELETE /products/:id (CTR-007)", () => {
-  it("T-PROD-010 — owner deletes product → 204 + Storage object deleted", async () => {
+describe("DELETE /products/:id — deleting a product (CTR-007)", () => {
+  it("T-PROD-010 — owner deletes their product → 204 + Storage object cleaned up", async () => {
     seedProduct({
-      id: "p1",
-      coverArtPath: "cover-art/uid-cust/p1-cover.jpg",
-      ownerUid: "uid-cust",
+      id: "prod_midnights",
+      coverArtPath: "cover-art/usr_saeed_h/midnights-cover.jpg",
+      ownerUid: "usr_saeed_h",
     });
-    const res = await request(buildApp()).delete("/products/p1").set("x-test-user", CUSTOMER);
+    const res = await request(buildApp())
+      .delete("/products/prod_midnights")
+      .set("x-test-user", SAEED);
     expect(res.status).toBe(204);
-    expect(store.has("p1")).toBe(false);
-    expect(objectDeleteCalls).toContain("cover-art/uid-cust/p1-cover.jpg");
+    expect(store.has("prod_midnights")).toBe(false);
+    expect(objectDeleteCalls).toContain("cover-art/usr_saeed_h/midnights-cover.jpg");
   });
 
-  it("T-PROD-010b — admin deletes any product → 204", async () => {
-    seedProduct({ id: "p1", ownerUid: "other" });
-    const res = await request(buildApp()).delete("/products/p1").set("x-test-user", ADMIN);
+  it("T-PROD-010b — admin can delete any product", async () => {
+    seedProduct({ id: "prod_midnights", ownerUid: "usr_jamie_lee" });
+    const res = await request(buildApp())
+      .delete("/products/prod_midnights")
+      .set("x-test-user", MARCUS);
     expect(res.status).toBe(204);
   });
 
-  it("T-PROD-010c — Storage delete failure does NOT fail the request (best-effort)", async () => {
-    seedProduct({ id: "p1", ownerUid: "uid-cust" });
+  it("T-PROD-010c — Storage delete failure does NOT block the delete (best-effort cleanup)", async () => {
+    seedProduct({ id: "prod_midnights", ownerUid: "usr_saeed_h" });
     storageBehaviour.objectDeleteMode = "throw";
-    const res = await request(buildApp()).delete("/products/p1").set("x-test-user", CUSTOMER);
+    const res = await request(buildApp())
+      .delete("/products/prod_midnights")
+      .set("x-test-user", SAEED);
     expect(res.status).toBe(204);
-    expect(store.has("p1")).toBe(false); // Firestore delete still succeeded
+    expect(store.has("prod_midnights")).toBe(false);
   });
 
-  it("T-PROD-011 — non-owner non-admin → 403", async () => {
-    seedProduct({ id: "p1", ownerUid: "uid-cust" });
-    const res = await request(buildApp()).delete("/products/p1").set("x-test-user", CUSTOMER_B);
+  it("T-PROD-011 — Jamie can't delete Saeed's product → 403, doc untouched", async () => {
+    seedProduct({ id: "prod_midnights", ownerUid: "usr_saeed_h" });
+    const res = await request(buildApp())
+      .delete("/products/prod_midnights")
+      .set("x-test-user", JAMIE);
     expect(res.status).toBe(403);
-    expect(store.has("p1")).toBe(true); // unchanged
+    expect(store.has("prod_midnights")).toBe(true);
   });
 
-  it("T-PROD-011b — missing product → 404", async () => {
-    const res = await request(buildApp()).delete("/products/missing").set("x-test-user", CUSTOMER);
+  it("T-PROD-011b — deleting a product that doesn't exist → 404", async () => {
+    const res = await request(buildApp()).delete("/products/prod_ghost").set("x-test-user", SAEED);
     expect(res.status).toBe(404);
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// CTR-008 — POST /products/:id/approve  (admin only)
-// ══════════════════════════════════════════════════════════════════════
-
-describe("T-ADMIN-001..002: POST /products/:id/approve (CTR-008)", () => {
-  it("T-ADMIN-001 — admin approves pending → status=published, approvedBy set", async () => {
-    seedProduct({ id: "p1", status: "pending" });
+describe("POST /products/:id/approve — admin approval (CTR-008)", () => {
+  it("T-ADMIN-001 — Marcus approves Saeed's pending Midnights → status flips to published, audit fields set", async () => {
+    seedProduct({ id: "prod_midnights", status: "pending" });
     const res = await request(buildApp())
-      .post("/products/p1/approve")
-      .set("x-test-user", ADMIN)
+      .post("/products/prod_midnights/approve")
+      .set("x-test-user", MARCUS)
       .send({});
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("published");
-    expect(res.body.approvedBy).toBe("uid-admin");
+    expect(res.body.approvedBy).toBe("usr_marcus_admin");
     expect(typeof res.body.approvedAt).toBe("string");
   });
 
-  it("T-ADMIN-001b — customer cannot approve → 403", async () => {
-    seedProduct({ id: "p1", status: "pending" });
+  it("T-ADMIN-001b — Saeed (customer) can't approve products → 403", async () => {
+    seedProduct({ id: "prod_midnights", status: "pending" });
     const res = await request(buildApp())
-      .post("/products/p1/approve")
-      .set("x-test-user", CUSTOMER)
+      .post("/products/prod_midnights/approve")
+      .set("x-test-user", SAEED)
       .send({});
     expect(res.status).toBe(403);
   });
 
-  it("T-ADMIN-001c — unauthenticated → 401", async () => {
-    const res = await request(buildApp()).post("/products/p1/approve").send({});
+  it("T-ADMIN-001c — approving with no auth → 401", async () => {
+    const res = await request(buildApp()).post("/products/prod_midnights/approve").send({});
     expect(res.status).toBe(401);
   });
 
-  it("T-ADMIN-002 — approving already-published → 409 CONFLICT", async () => {
-    seedProduct({ id: "p1", status: "published" });
+  it("T-ADMIN-002 — approving an already-published product → 409 (no double approve)", async () => {
+    seedProduct({ id: "prod_midnights", status: "published" });
     const res = await request(buildApp())
-      .post("/products/p1/approve")
-      .set("x-test-user", ADMIN)
+      .post("/products/prod_midnights/approve")
+      .set("x-test-user", MARCUS)
       .send({});
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("CONFLICT");
   });
 
-  it("T-ADMIN-002b — approve missing product → 404", async () => {
+  it("T-ADMIN-002b — approving a product that doesn't exist → 404", async () => {
     const res = await request(buildApp())
-      .post("/products/missing/approve")
-      .set("x-test-user", ADMIN)
+      .post("/products/prod_ghost/approve")
+      .set("x-test-user", MARCUS)
       .send({});
     expect(res.status).toBe(404);
   });
 
-  it("T-ADMIN-002c — emits alert.kind=admin_action on approve", async () => {
-    seedProduct({ id: "p1", status: "pending" });
+  it("T-ADMIN-002c — approval fires an admin_action alert for the audit trail", async () => {
+    seedProduct({ id: "prod_midnights", status: "pending" });
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-    await request(buildApp()).post("/products/p1/approve").set("x-test-user", ADMIN).send({});
+    await request(buildApp())
+      .post("/products/prod_midnights/approve")
+      .set("x-test-user", MARCUS)
+      .send({});
     const fired = info.mock.calls.find((c) => {
       const obj = c[0] as Record<string, unknown> | undefined;
       return obj && (obj as { alert?: { kind?: string } }).alert?.kind === "admin_action";
@@ -884,62 +914,60 @@ describe("T-ADMIN-001..002: POST /products/:id/approve (CTR-008)", () => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// CTR-009 — POST /products/:id/reject  (admin only)
-// ══════════════════════════════════════════════════════════════════════
-
-describe("T-ADMIN-003: POST /products/:id/reject (CTR-009)", () => {
-  it("T-ADMIN-003 — admin rejects with reason → status=rejected, reason stored", async () => {
-    seedProduct({ id: "p1", status: "pending" });
+describe("POST /products/:id/reject — admin rejection (CTR-009)", () => {
+  it("T-ADMIN-003 — admin rejects with a reason, that reason gets stored on the doc", async () => {
+    seedProduct({ id: "prod_midnights", status: "pending" });
     const res = await request(buildApp())
-      .post("/products/p1/reject")
-      .set("x-test-user", ADMIN)
-      .send({ reason: "Cover art breaches guidelines" });
+      .post("/products/prod_midnights/reject")
+      .set("x-test-user", MARCUS)
+      .send({ reason: "Cover art breaches our guidelines" });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("rejected");
-    expect(res.body.rejectionReason).toBe("Cover art breaches guidelines");
+    expect(res.body.rejectionReason).toBe("Cover art breaches our guidelines");
   });
 
-  it("T-ADMIN-003b — default reason applied when body omits reason", async () => {
-    seedProduct({ id: "p1", status: "pending" });
+  it("T-ADMIN-003b — rejecting with no reason in the body → falls back to 'Rejected by admin'", async () => {
+    seedProduct({ id: "prod_midnights", status: "pending" });
     const res = await request(buildApp())
-      .post("/products/p1/reject")
-      .set("x-test-user", ADMIN)
+      .post("/products/prod_midnights/reject")
+      .set("x-test-user", MARCUS)
       .send({});
     expect(res.status).toBe(200);
     expect(res.body.rejectionReason).toBe("Rejected by admin");
   });
 
-  it("T-ADMIN-003c — default reason when reason is non-string", async () => {
-    seedProduct({ id: "p1", status: "pending" });
+  it("T-ADMIN-003c — non-string reason (e.g. number) also falls back to default", async () => {
+    seedProduct({ id: "prod_midnights", status: "pending" });
     const res = await request(buildApp())
-      .post("/products/p1/reject")
-      .set("x-test-user", ADMIN)
+      .post("/products/prod_midnights/reject")
+      .set("x-test-user", MARCUS)
       .send({ reason: 12345 });
     expect(res.status).toBe(200);
     expect(res.body.rejectionReason).toBe("Rejected by admin");
   });
 
-  it("T-ADMIN-003d — customer cannot reject → 403", async () => {
-    seedProduct({ id: "p1", status: "pending" });
+  it("T-ADMIN-003d — Saeed can't reject products → 403", async () => {
+    seedProduct({ id: "prod_midnights", status: "pending" });
     const res = await request(buildApp())
-      .post("/products/p1/reject")
-      .set("x-test-user", CUSTOMER)
+      .post("/products/prod_midnights/reject")
+      .set("x-test-user", SAEED)
       .send({});
     expect(res.status).toBe(403);
   });
 
-  it("T-ADMIN-003e — reject missing product → 404", async () => {
+  it("T-ADMIN-003e — rejecting a non-existent product → 404", async () => {
     const res = await request(buildApp())
-      .post("/products/missing/reject")
-      .set("x-test-user", ADMIN)
+      .post("/products/prod_ghost/reject")
+      .set("x-test-user", MARCUS)
       .send({});
     expect(res.status).toBe(404);
   });
 
-  it("T-ADMIN-003f — reject handles missing body gracefully", async () => {
-    seedProduct({ id: "p1", status: "pending" });
-    const res = await request(buildApp()).post("/products/p1/reject").set("x-test-user", ADMIN);
+  it("T-ADMIN-003f — reject with no body at all (not even {}) → still works, default reason", async () => {
+    seedProduct({ id: "prod_midnights", status: "pending" });
+    const res = await request(buildApp())
+      .post("/products/prod_midnights/reject")
+      .set("x-test-user", MARCUS);
     expect(res.status).toBe(200);
     expect(res.body.rejectionReason).toBe("Rejected by admin");
   });

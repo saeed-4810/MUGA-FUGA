@@ -10,12 +10,12 @@
   "request": {
     "title": "Nieuwe artiest aanvragen",
     "body": "Een beheerder beoordeelt je aanvraag voordat de artiest openbaar wordt.",
-    "errors": {
-      "failed": "Artiestaanvraag is mislukt. Probeer het opnieuw.",
-      "failedWithCode": "Artiestaanvraag is mislukt ({{code}}). Probeer het opnieuw."
-    },
     "actions": {
       "submit": "Aanvragen"
+    },
+    "errors": {
+      "failed": "De artiest kon niet worden aangevraagd. Probeer het opnieuw.",
+      "failedWithCode": "De artiest kon niet worden aangevraagd ({{code}})."
     }
   },
   "dashboard": {
@@ -24,7 +24,7 @@
   },
   "productBanner": {
     "bothPending": "Je product komt online zodra zowel deze artiest als het product zijn goedgekeurd.",
-    "pendingBlocked": "Je artiestaanvraag wacht op beoordeling. Je kunt een product indienen nadat een beheerder deze artiest publiceert."
+    "pendingBlocked": "Deze artiest wacht op goedkeuring. Je kunt een product indienen zodra de artiest is gepubliceerd."
   },
   "status": {
     "pending": "In afwachting",

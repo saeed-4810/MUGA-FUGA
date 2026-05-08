@@ -10,12 +10,12 @@
   "request": {
     "title": "Request a new artist",
     "body": "An admin will review your request before the artist becomes public.",
-    "errors": {
-      "failed": "Artist request failed. Try again.",
-      "failedWithCode": "Artist request failed ({{code}}). Try again."
-    },
     "actions": {
       "submit": "Request"
+    },
+    "errors": {
+      "failed": "Couldn't request the artist. Try again.",
+      "failedWithCode": "Couldn't request the artist ({{code}})."
     }
   },
   "dashboard": {
@@ -24,7 +24,7 @@
   },
   "productBanner": {
     "bothPending": "Your product will go live once both this artist and the product are approved.",
-    "pendingBlocked": "Your artist request is pending. You can submit a product after an admin publishes this artist."
+    "pendingBlocked": "This artist is waiting for admin approval. You can submit a product once the artist is published."
   },
   "status": {
     "pending": "Pending",

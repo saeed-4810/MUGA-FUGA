@@ -60,14 +60,11 @@ describe("U-ALERT-001..004: frontend alerting", () => {
     );
     await vi.advanceTimersByTimeAsync(200);
     await promise;
-    // recovery breadcrumb fires AFTER the op completes
     expect(addBreadcrumb).toHaveBeenCalledTimes(1);
   });
 
   it("U-ALERT-004 — withWatchdog clears the timer when the op rejects fast", async () => {
     const { captureMessage } = await import("@sentry/react");
-    // Defer the rejection one microtask so the await/.rejects handler is
-    // attached before the rejection lands (avoids vitest "unhandled rejection").
     const failing = withWatchdog(
       "rejecting",
       () =>

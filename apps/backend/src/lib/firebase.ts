@@ -29,7 +29,6 @@ export const initFirebase = (env: Env): App => {
     return app;
   }
 
-  // ADC (Cloud Run / workload identity / GOOGLE_APPLICATION_CREDENTIALS)
   app = initializeApp({
     credential: applicationDefault(),
     projectId,

@@ -9,14 +9,14 @@ import { docsRouter } from "../src/routes/docs.js";
  *
  * Covers /api/docs (Swagger UI) + /api/openapi.json.
  */
-describe("T-DOCS-001..002: /api/docs + /api/openapi.json (CTR-DOCS)", () => {
+describe("/api/docs + /api/openapi.json — live OpenAPI surface", () => {
   const buildApp = () => {
     const app = express();
     app.use(docsRouter());
     return app;
   };
 
-  it("T-DOCS-001 — GET /api/openapi.json returns a valid OpenAPI 3.x document", async () => {
+  it("T-DOCS-001 — /api/openapi.json serves a valid OpenAPI 3.x document with title + paths", async () => {
     const res = await request(buildApp()).get("/api/openapi.json");
     expect(res.status).toBe(200);
     expect(res.body.openapi).toMatch(/^3\./);
@@ -25,9 +25,8 @@ describe("T-DOCS-001..002: /api/docs + /api/openapi.json (CTR-DOCS)", () => {
     expect(typeof res.body.paths).toBe("object");
   });
 
-  it("T-DOCS-002 — GET /api/docs serves Swagger UI HTML", async () => {
+  it("T-DOCS-002 — /api/docs serves the Swagger UI HTML page", async () => {
     const res = await request(buildApp()).get("/api/docs/");
-    // Swagger UI responds 200 with HTML that links the OpenAPI JSON.
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/html/);
     expect(res.text).toMatch(/swagger/i);

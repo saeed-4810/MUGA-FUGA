@@ -13,7 +13,6 @@ import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-// Hoisted controllable state for the firebase lib mock + the api mock.
 const fbState: {
   cb: ((u: unknown) => void) | null;
   signInImpl: () => Promise<unknown>;
@@ -49,6 +48,13 @@ vi.mock("../lib/api", () => ({
   },
 }));
 
+const createSessionMock = vi.fn(async (_user: unknown) => undefined);
+const destroySessionMock = vi.fn(async () => undefined);
+vi.mock("../lib/session-client", () => ({
+  createSession: (user: unknown) => createSessionMock(user),
+  destroySession: () => destroySessionMock(),
+}));
+
 import { AuthProvider, isLocalhostUrl, readLocalhostE2eUser, useAuth } from "./AuthContext";
 
 const Probe = () => {
@@ -73,14 +79,16 @@ beforeEach(() => {
   fbState.signOutImpl = vi.fn(async () => undefined);
   sessionStorage.clear();
   apiPostMock.mockReset();
+  createSessionMock.mockClear();
+  destroySessionMock.mockClear();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("U-AUTH-bootstrap: AuthContext", () => {
-  it("U-AUTH-CTX-001 — initial state is loading=true with no user", async () => {
+describe("AuthContext — Firebase auth lifecycle + role bootstrap", () => {
+  it("U-AUTH-CTX-001 — at first render we're loading=true with no user (we haven't heard from Firebase yet)", async () => {
     render(
       <AuthProvider>
         <Probe />
@@ -90,7 +98,7 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
     expect(screen.getByTestId("uid").textContent).toBe("anon");
   });
 
-  it("U-AUTH-CTX-002 — firebase emits null → user=null, loading=false", async () => {
+  it("U-AUTH-CTX-002 — when Firebase tells us we're signed out (null user) → loading=false, no user data", async () => {
     render(
       <AuthProvider>
         <Probe />
@@ -107,7 +115,7 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
   it("U-AUTH-CTX-002b — localhost e2e override seeds a customer user", async () => {
     sessionStorage.setItem(
       "muga:e2e-user",
-      JSON.stringify({ uid: "e2e-customer", email: "e2e@example.com", role: "customer" })
+      JSON.stringify({ uid: "usr_e2e_saeed", email: "saeedh582@gmail.com", role: "customer" })
     );
     render(
       <AuthProvider>
@@ -115,7 +123,7 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
       </AuthProvider>
     );
     await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
-    expect(screen.getByTestId("uid").textContent).toBe("e2e-customer");
+    expect(screen.getByTestId("uid").textContent).toBe("usr_e2e_saeed");
     expect(screen.getByTestId("role").textContent).toBe("customer");
     expect(fbState.cb).toBeNull();
   });
@@ -127,10 +135,10 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
     expect(readLocalhostE2eUser("http://localhost:5174/login", sessionStorage)).toBeNull();
   });
 
-  it("U-AUTH-CTX-003 — successful sign-in: /me/bootstrap returns admin → role=admin, getIdToken refreshed", async () => {
+  it("U-AUTH-CTX-003 — Marcus signs in: /me/bootstrap returns admin → role flips to admin and we force-refresh the ID token", async () => {
     apiPostMock.mockResolvedValue({
-      uid: "uid-admin",
-      email: "admin@example.com",
+      uid: "usr_marcus_admin",
+      email: "marcus@muga.app",
       role: "admin",
     });
     const refresh = vi.fn(async () => "fresh-token");
@@ -141,26 +149,30 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
     );
     await act(async () => {
       fbState.cb?.({
-        uid: "uid-admin",
-        email: "admin@example.com",
+        uid: "usr_marcus_admin",
+        email: "marcus@muga.app",
         emailVerified: true,
-        displayName: "Adam Admin",
-        photoURL: "https://photos/admin.jpg",
+        displayName: "Marcus Reed",
+        photoURL: "https://lh3.googleusercontent.com/marcus.jpg",
         getIdToken: refresh,
       });
     });
     await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
     expect(screen.getByTestId("role").textContent).toBe("admin");
-    expect(screen.getByTestId("uid").textContent).toBe("uid-admin");
-    expect(screen.getByTestId("email").textContent).toBe("admin@example.com");
-    expect(screen.getByTestId("display").textContent).toBe("Adam Admin");
-    expect(screen.getByTestId("photo").textContent).toBe("https://photos/admin.jpg");
+    expect(screen.getByTestId("uid").textContent).toBe("usr_marcus_admin");
+    expect(screen.getByTestId("email").textContent).toBe("marcus@muga.app");
+    expect(screen.getByTestId("display").textContent).toBe("Marcus Reed");
+    expect(screen.getByTestId("photo").textContent).toBe(
+      "https://lh3.googleusercontent.com/marcus.jpg"
+    );
     expect(apiPostMock).toHaveBeenCalledWith("/me/bootstrap", {});
-    // ID token forced refresh so the new claim is in the next request
     expect(refresh).toHaveBeenCalledWith(true);
+    expect(createSessionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "usr_marcus_admin" })
+    );
   });
 
-  it("U-AUTH-CTX-004 — bootstrap failure falls back to customer, no token refresh", async () => {
+  it("U-AUTH-CTX-004 — if /me/bootstrap fails (backend down), we fall back to customer role and DON'T re-fetch the ID token", async () => {
     apiPostMock.mockRejectedValue(new Error("backend down"));
     const refresh = vi.fn(async () => "stale-token");
     render(
@@ -170,8 +182,8 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
     );
     await act(async () => {
       fbState.cb?.({
-        uid: "uid-cust",
-        email: "cust@example.com",
+        uid: "usr_saeed_h",
+        email: "saeedh582@gmail.com",
         emailVerified: true,
         displayName: null,
         photoURL: null,
@@ -180,8 +192,7 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
     });
     await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
     expect(screen.getByTestId("role").textContent).toBe("customer");
-    expect(screen.getByTestId("uid").textContent).toBe("uid-cust");
-    // No forced refresh on the failure branch
+    expect(screen.getByTestId("uid").textContent).toBe("usr_saeed_h");
     expect(refresh).not.toHaveBeenCalled();
   });
 
@@ -194,7 +205,7 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
     );
     await act(async () => {
       fbState.cb?.({
-        uid: "uid-no-email",
+        uid: "usr_legacy_no_email",
         email: null,
         getIdToken: vi.fn(async () => ""),
       });
@@ -214,6 +225,7 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
     await user.click(screen.getByText("signin"));
     expect(fbState.signInImpl).toHaveBeenCalledTimes(1);
     await user.click(screen.getByText("signout"));
+    expect(destroySessionMock).toHaveBeenCalledTimes(1);
     expect(fbState.signOutImpl).toHaveBeenCalledTimes(1);
   });
 
@@ -222,7 +234,6 @@ describe("U-AUTH-bootstrap: AuthContext", () => {
       useAuth();
       return null;
     };
-    // Suppress React's error-boundary console noise for this expected throw.
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     expect(() => render(<Bare />)).toThrow(/useAuth must be used within/);
     errSpy.mockRestore();

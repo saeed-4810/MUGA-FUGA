@@ -1,49 +1,36 @@
 /**
- * E-ADMIN-001 — Admin approval queue (observable behaviour).
+ * E-ADMIN-001 — admin approval queue, end-to-end pieces we can actually verify.
  *
- * The full approve/reject flow needs an admin-claim ID token, which the
- * Playwright runner doesn't have without a service-account dance. This
- * spec covers the route plumbing that we CAN deterministically assert
- * end-to-end:
+ * The full approve/reject loop needs a real admin ID token, which the runner
+ * doesn't have without a service-account dance. So this spec asserts the
+ * pieces we CAN deterministically prove in a real browser:
  *
- *   1. /admin/queue without auth redirects to /login
- *   2. signed-in customer hitting /admin/queue sees the role-mismatch
- *      forbidden card (covered at the unit layer; e2e cannot fake a
- *      customer ID token without admin tooling)
- *   3. The /login route renders the chrome-less overlay controls correctly
- *      when a deep link to /admin/queue forces a redirect
+ *   1. /admin/queue without a session bounces to /login
+ *   2. The login chrome (theme toggle + locale switcher) stays usable after a
+ *      deep-link redirect
  *
- * Approve/reject behaviour is covered at the unit layer in
- * src/pages/AdminQueuePage.test.tsx (U-ADMIN-004a..c), where the
- * api client is mocked deterministically.
+ * The approve/reject behaviour is covered at the unit layer in
+ * src/pages/AdminQueuePage.test.tsx where the api client is mocked.
  */
 import { test, expect } from "@playwright/test";
 
-test.describe("E-ADMIN-001 — admin approval queue", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => window.sessionStorage.removeItem("muga:e2e-user"));
-  });
-
-  test("E-ADMIN-001a — /admin/queue without auth redirects to /login", async ({ page }) => {
+test.describe("Admin approval queue", () => {
+  test("E-ADMIN-001a — /admin/queue without a session bounces to /login", async ({ page }) => {
     await page.goto("/admin/queue");
-    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
+    await page.waitForURL(/\/login$/);
     await expect(page).toHaveURL(/\/login$/);
-    // Scope to <main> — the header <UserMenu /> renders the same "Sign in
-    // with Google" label when unauthenticated, which would otherwise trip
-    // Playwright's strict mode on the global query.
     await expect(
       page.getByRole("main").getByRole("button", { name: /sign in with google/i })
     ).toBeVisible();
   });
 
-  test("E-ADMIN-001b — login overlay stays usable after a deep-link redirect", async ({ page }) => {
+  test("E-ADMIN-001b — after a deep-link redirect, the login page chrome (theme + locale) is still wired", async ({
+    page,
+  }) => {
     await page.goto("/admin/queue");
-    await page.waitForURL(/\/login$/, { waitUntil: "commit" });
-    const main = page.getByRole("main");
-    await expect(main.getByTestId("theme-toggle")).toBeVisible();
-    await expect(main.getByTestId("locale-switcher")).toBeVisible();
-    // AppShell chrome is intentionally absent on /login (JS/router-level split).
-    await expect(page.getByRole("banner")).toHaveCount(0);
-    await expect(page.getByRole("navigation")).toHaveCount(0);
+    await page.waitForURL(/\/login$/);
+    const banner = page.getByRole("banner");
+    await expect(banner.getByTestId("theme-toggle")).toBeVisible();
+    await expect(banner.getByTestId("locale-switcher")).toBeVisible();
   });
 });

@@ -56,11 +56,11 @@ the PR description.
 
 On PR to `main` and on push to `main`:
 
-- install → lint → typecheck → test (with 100% coverage threshold) → build → docker → lighthouse (PR only)
+- install → lint → typecheck → test (with 100% coverage threshold) → build → docker
 
 End-to-end tests (Playwright) run **after deploy** — against the preview
-channel for labelled PRs (see `Preview channels` below) and against live
-staging on every merge to `main`.
+channel only when both `preview` and `e2e` labels are present (see `Preview
+channels` below), and against live staging on every merge to `main`.
 
 ## Per-role review gate
 
@@ -78,9 +78,10 @@ CODEOWNERS auto-assigns reviewers based on the changed paths:
 
 ## Preview channels (opt-in, label-gated)
 
-Add the `preview` label to a PR to deploy a Firebase Hosting preview channel
-and run Playwright E2E against the preview URL. Without the label, no preview
-is created and CI runs in its standard fast-path mode.
+Add the `preview` label to a PR to deploy a Firebase Hosting preview channel.
+Add the `e2e` label as well to run Playwright E2E against that preview URL.
+Without `preview`, no preview is created and CI runs in its standard fast-path
+mode.
 
 The preview shares the staging backend via the `/api/**` rewrite. The
 channel is auto-deleted on PR close or label removal.

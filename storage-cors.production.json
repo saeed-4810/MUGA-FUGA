@@ -1,6 +1,6 @@
 [
   {
-    "origin": ["https://muga-production.web.app"],
+    "origin": ["*"],
     "method": ["PUT", "GET", "HEAD"],
     "responseHeader": ["Content-Type", "ETag"],
     "maxAgeSeconds": 3600

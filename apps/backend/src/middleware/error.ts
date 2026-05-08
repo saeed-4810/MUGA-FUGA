@@ -52,11 +52,9 @@ export const buildErrorHandler =
       path: req.path,
     });
 
-    // Unknown — never leak internals.
     res.status(500).json(buildEnvelope("INTERNAL", "Internal server error", requestId));
   };
 
-/** Backward-compatible default handler with no-op alerting (used by tests). */
 export const errorHandler: ErrorRequestHandler = buildErrorHandler();
 
 export const notFoundHandler: RequestHandler = (req, res) => {

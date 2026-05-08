@@ -25,8 +25,9 @@
 
 ## Preview
 
-<!-- Add the `preview` label to deploy a Firebase Hosting preview channel
-     and run E2E against it. Skip the label for typical PRs. -->
+<!-- Add the `preview` label to deploy a Firebase Hosting preview channel.
+     Add the `e2e` label as well to run Playwright against that preview.
+     Skip both labels for typical PRs. -->
 
 ## Out of scope / follow-ups
 

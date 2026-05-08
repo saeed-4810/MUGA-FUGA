@@ -8,14 +8,10 @@ export const meRouter = (env: Env): ExpressRouter => {
   const router = Router();
   router.use(requireAuth(env));
 
-  // GET /me — current authenticated user (CTR-001)
   router.get("/", (req, res) => {
     res.json(req.user);
   });
 
-  // POST /me/bootstrap — first-sign-in bootstrapping. If the email is in
-  // INITIAL_ADMIN_EMAILS and no role claim exists yet, set it to admin.
-  // Otherwise the role defaults to "customer".
   router.post("/bootstrap", async (req, res, next) => {
     try {
       const user = req.user!;

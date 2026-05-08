@@ -13,7 +13,6 @@ import {
 import { Errors } from "../domain/errors.js";
 import { emitAlert } from "../lib/alerting.js";
 import { db, bucket } from "../lib/firebase.js";
-import { storageMediaUrl } from "../lib/mediaUrl.js";
 import { buildApproveHandler, buildRejectHandler } from "../lib/moderation.js";
 import { SignedUploadInput, mintSignedUpload } from "../lib/signedUpload.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
@@ -40,20 +39,10 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 const COLLECTION = "artists";
 const PRODUCTS_COLLECTION = "products";
 const IMAGE_PREFIX = "artist-images";
+const ARTIST_IMAGE_READ_URL_TTL_MS = 60 * 60 * 1000;
 
-/** Maximum number of blocking product ids returned in a delete-409 response. */
 const DELETE_BLOCK_PEEK = 5;
 
-const toArtistResponse = (env: Env, artist: Artist): Artist => ({
-  ...artist,
-  ...(artist.imageUrl !== undefined
-    ? { imageUrl: artist.imageUrl }
-    : artist.imageObjectPath !== undefined
-      ? { imageUrl: storageMediaUrl(env, artist.imageObjectPath) }
-      : {}),
-});
-
-/** Parse a comma-separated `?status=` query into an array of statuses. */
 const parseStatusFilter = (raw: unknown): ArtistStatus[] | null => {
   if (typeof raw !== "string" || raw.trim() === "") return null;
   const known: Record<string, true> = { pending: true, published: true, rejected: true };
@@ -68,7 +57,6 @@ export const artistsRouter = (env: Env): ExpressRouter => {
   const router = Router();
   router.use(requireAuth(env));
 
-  // CTR-100 — POST /signed-upload
   router.post("/signed-upload", async (req, res, next) => {
     try {
       const input = SignedUploadInput.parse(req.body);
@@ -88,9 +76,6 @@ export const artistsRouter = (env: Env): ExpressRouter => {
     }
   });
 
-  // CTR-101 — POST /
-  // Customer → pending; admin → published immediately.
-  // Name uniqueness enforced via Firestore transaction on `name_lc` + `slug`.
   router.post("/", async (req, res, next) => {
     try {
       const input = CreateArtistInput.parse(req.body);
@@ -122,14 +107,12 @@ export const artistsRouter = (env: Env): ExpressRouter => {
         return artist;
       });
 
-      res.status(201).json(toArtistResponse(env, ArtistSchema.parse(created)));
+      res.status(201).json(await toArtistResponse(env, ArtistSchema.parse(created)));
     } catch (err) {
       next(err);
     }
   });
 
-  // CTR-102 — GET /
-  // Customer sees own + published; admin sees all (with optional ?status / ?ownerUid).
   router.get("/", async (req, res, next) => {
     try {
       const isAdmin = req.user!.role === "admin";
@@ -137,9 +120,6 @@ export const artistsRouter = (env: Env): ExpressRouter => {
       const requestedOwnerUid =
         typeof req.query["ownerUid"] === "string" ? (req.query["ownerUid"] as string) : null;
 
-      // Build the query. We always order by createdAt desc for the public list;
-      // composite indexes back the (status, createdAt) and (ownerUid, createdAt)
-      // patterns we need.
       let q = db(env).collection(COLLECTION).orderBy("createdAt", "desc").limit(100);
 
       if (isAdmin) {
@@ -150,7 +130,6 @@ export const artistsRouter = (env: Env): ExpressRouter => {
           q = q.where("status", "in", requestedStatus);
         }
       } else if (requestedOwnerUid && requestedOwnerUid === req.user!.uid) {
-        // Customer scoping their own artists: own (any status), filter by status if provided.
         q = q.where("ownerUid", "==", req.user!.uid);
         if (requestedStatus && requestedStatus.length === 1) {
           q = q.where("status", "==", requestedStatus[0]);
@@ -158,21 +137,17 @@ export const artistsRouter = (env: Env): ExpressRouter => {
           q = q.where("status", "in", requestedStatus);
         }
       } else {
-        // Customer default — published only. `?ownerUid` for someone else is silently
-        // ignored (we don't 403 because the data is just not visible).
         q = q.where("status", "==", "published");
       }
 
       const snap = await q.get();
-      const items = snap.docs.map((d) => toArtistResponse(env, ArtistSchema.parse(d.data())));
-      res.json({ items });
+      const items = snap.docs.map((d) => ArtistSchema.parse(d.data()));
+      res.json({ items: await Promise.all(items.map((artist) => toArtistResponse(env, artist))) });
     } catch (err) {
       next(err);
     }
   });
 
-  // CTR-103 — GET /:id
-  // 404-hide for non-owner non-admin on a non-published artist.
   router.get("/:id", async (req, res, next) => {
     try {
       const id = req.params["id"]!;
@@ -185,14 +160,12 @@ export const artistsRouter = (env: Env): ExpressRouter => {
       if (!isAdmin && !isOwner && artist.status !== "published") {
         throw Errors.notFound("artist");
       }
-      res.json(toArtistResponse(env, artist));
+      res.json(await toArtistResponse(env, artist));
     } catch (err) {
       next(err);
     }
   });
 
-  // CTR-104 — PATCH /:id
-  // Owner or admin. Renaming triggers a fresh uniqueness check (txn).
   router.patch("/:id", async (req, res, next) => {
     try {
       const id = req.params["id"]!;
@@ -205,7 +178,6 @@ export const artistsRouter = (env: Env): ExpressRouter => {
       const isOwner = existing.ownerUid === req.user!.uid;
       if (!isAdmin && !isOwner) throw Errors.forbidden();
 
-      // Strip undefined keys; partial update semantics.
       const patch: Partial<CreateArtistInput> = Object.fromEntries(
         Object.entries(input).filter(([, v]) => v !== undefined)
       );
@@ -226,7 +198,6 @@ export const artistsRouter = (env: Env): ExpressRouter => {
       };
 
       if (renamed) {
-        // Uniqueness re-check on rename. Excludes the artist's own document.
         await runUniqueWriteTxn(
           env,
           merged.name_lc,
@@ -241,14 +212,12 @@ export const artistsRouter = (env: Env): ExpressRouter => {
         await ref.set(merged);
       }
 
-      res.json(toArtistResponse(env, ArtistSchema.parse(merged)));
+      res.json(await toArtistResponse(env, ArtistSchema.parse(merged)));
     } catch (err) {
       next(err);
     }
   });
 
-  // CTR-105 — DELETE /:id
-  // Owner or admin. **Rejected with 409 when any product references this artist.**
   router.delete("/:id", async (req, res, next) => {
     try {
       const id = req.params["id"]!;
@@ -260,8 +229,6 @@ export const artistsRouter = (env: Env): ExpressRouter => {
       const isOwner = existing.ownerUid === req.user!.uid;
       if (!isAdmin && !isOwner) throw Errors.forbidden();
 
-      // FK referential check. Pull DELETE_BLOCK_PEEK to know whether
-      // there's a "+more" tail without an unbounded scan.
       const blockingSnap = await db(env)
         .collection(PRODUCTS_COLLECTION)
         .where("artistId", "==", id)
@@ -277,12 +244,11 @@ export const artistsRouter = (env: Env): ExpressRouter => {
       }
 
       await ref.delete();
-      // Best-effort image cleanup.
       if (existing.imageObjectPath) {
         try {
           await bucket(env).file(existing.imageObjectPath).delete({ ignoreNotFound: true });
         } catch {
-          /* swallowed: image removal is best-effort */
+          void 0;
         }
       }
       res.status(204).end();
@@ -291,7 +257,6 @@ export const artistsRouter = (env: Env): ExpressRouter => {
     }
   });
 
-  // CTR-106 — POST /:id/approve — admin-only approval.
   router.post(
     "/:id/approve",
     requireRole("admin"),
@@ -303,7 +268,6 @@ export const artistsRouter = (env: Env): ExpressRouter => {
     })
   );
 
-  // CTR-107 — POST /:id/reject — admin-only rejection.
   router.post(
     "/:id/reject",
     requireRole("admin"),
@@ -355,3 +319,33 @@ async function runUniqueWriteTxn<T>(
     return op(txn, ref);
   });
 }
+
+const mintArtistImageReadUrl = async (
+  env: Env,
+  objectPath: string
+): Promise<string | undefined> => {
+  if (env.FIREBASE_STORAGE_EMULATOR_HOST) {
+    const origin = env.FIREBASE_STORAGE_EMULATOR_HOST.startsWith("http")
+      ? env.FIREBASE_STORAGE_EMULATOR_HOST
+      : `http://${env.FIREBASE_STORAGE_EMULATOR_HOST}`;
+    return `${origin}/v0/b/${encodeURIComponent(env.FIREBASE_STORAGE_BUCKET)}/o/${encodeURIComponent(objectPath)}?alt=media`;
+  }
+  try {
+    const [url] = await bucket(env)
+      .file(objectPath)
+      .getSignedUrl({
+        version: "v4",
+        action: "read",
+        expires: new Date(Date.now() + ARTIST_IMAGE_READ_URL_TTL_MS),
+      });
+    return url;
+  } catch {
+    return undefined;
+  }
+};
+
+const toArtistResponse = async (env: Env, artist: Artist): Promise<Artist> => {
+  if (artist.imageUrl || !artist.imageObjectPath) return artist;
+  const imageUrl = await mintArtistImageReadUrl(env, artist.imageObjectPath);
+  return imageUrl ? { ...artist, imageUrl } : artist;
+};

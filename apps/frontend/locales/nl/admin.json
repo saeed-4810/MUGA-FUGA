@@ -7,13 +7,13 @@
       "body": "Er is op dit moment niets te beoordelen."
     },
     "loading": "Goedkeuringswachtrij laden",
-    "tableTitle": "Inzendingen in behandeling",
+    "tableTitle": "Openstaande inzendingen",
     "filters": {
       "status": "Statusfilter",
-      "description": "De beheerderswachtrij toont klantinzendingen die op beoordeling wachten."
+      "description": "Beoordeel producten die wachten op goedkeuring door een beheerder."
     },
     "status": {
-      "pending": "In behandeling ({{count}})"
+      "pending": "{{count}} in behandeling"
     },
     "columns": {
       "owner": "Eigenaar",
@@ -22,21 +22,19 @@
     },
     "actions": {
       "approve": "Goedkeuren",
-      "approving": "Goedkeuren…",
-      "details": "Details",
       "reject": "Afwijzen",
-      "rejecting": "Afwijzen…"
+      "details": "Details"
     },
     "details": {
-      "title": "Beoordeel {{name}}",
-      "body": "Controleer de inzending voordat je actie onderneemt.",
+      "title": "Inzenddetails voor {{name}}",
+      "body": "Controleer eigenaar, artiest en aanmaakgegevens voordat je actie onderneemt.",
       "close": "Sluiten"
     },
     "reject": {
       "title": "{{name}} afwijzen?",
-      "body": "Dit haalt het product uit de goedkeuringswachtrij voor klanten.",
+      "body": "Voeg eventueel een reden toe voor de auditgeschiedenis voordat je dit product afwijst.",
       "reason": "Reden",
-      "placeholder": "Optionele reden voor klant of audittrail",
+      "placeholder": "Optionele reden",
       "cancel": "Annuleren",
       "confirm": "Product afwijzen"
     }
@@ -95,18 +93,22 @@
         "bio": "Bio",
         "country": "Land",
         "countryHint": "Optionele ISO-2 landcode, bijvoorbeeld NL of US.",
-        "image": "Afbeelding"
+        "image": "Afbeelding",
+        "imageHint": "JPEG, PNG, WebP of AVIF — tot 5 MB.",
+        "noImage": "Nog geen afbeelding geselecteerd"
       },
       "previewAlt": "Voorbeeld van artiestafbeelding",
       "errors": {
         "upload": "Uploaden van afbeelding mislukt. Probeer opnieuw.",
-        "uploadStatus": "Uploaden van afbeelding mislukt met status {{status}}. Probeer opnieuw."
+        "uploadStatus": "Uploaden van afbeelding mislukt met status {{status}}. Probeer opnieuw.",
+        "uploadInProgress": "Wacht tot de afbeelding is geüpload voordat je opslaat."
       },
       "actions": {
         "close": "Sluiten",
         "cancel": "Annuleren",
         "save": "Artiest opslaan",
-        "saving": "Opslaan…"
+        "saving": "Opslaan…",
+        "uploading": "Afbeelding uploaden…"
       }
     },
     "delete": {
@@ -118,6 +120,14 @@
       "hasMore": "Meer producten verwijzen ook naar deze artiest.",
       "cancel": "Annuleren",
       "confirm": "Artiest verwijderen"
+    },
+    "reject": {
+      "title": "{{name}} afwijzen?",
+      "body": "Voeg eventueel een reden toe voor de auditgeschiedenis voordat je dit artiestverzoek afwijst.",
+      "reason": "Reden",
+      "placeholder": "Optionele reden",
+      "cancel": "Annuleren",
+      "confirm": "Artiest afwijzen"
     },
     "imageAlt": "Afbeelding voor {{name}}",
     "noCountry": "—"

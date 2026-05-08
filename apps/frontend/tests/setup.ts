@@ -4,18 +4,7 @@ import i18next from "i18next";
 import { initReactI18next } from "react-i18next";
 import { afterEach, beforeAll, beforeEach } from "vitest";
 
-import enAdmin from "../locales/en/admin.json";
-import enArtists from "../locales/en/artists.json";
-import enAuth from "../locales/en/auth.json";
-import enCommon from "../locales/en/common.json";
-import enErrors from "../locales/en/errors.json";
-import enProducts from "../locales/en/products.json";
-import nlAdmin from "../locales/nl/admin.json";
-import nlArtists from "../locales/nl/artists.json";
-import nlAuth from "../locales/nl/auth.json";
-import nlCommon from "../locales/nl/common.json";
-import nlErrors from "../locales/nl/errors.json";
-import nlProducts from "../locales/nl/products.json";
+import { I18N_NAMESPACES, resources } from "../src/i18n/resources";
 
 const buildLocalStoragePolyfill = (): Storage => {
   const store = new Map<string, string>();
@@ -57,26 +46,30 @@ beforeAll(() => {
     }),
   });
 
-  if (!("ResizeObserver" in globalThis)) {
-    class ResizeObserverPolyfill {
-      observe(): void {
-        // noop: Radix Slider only needs the API to exist in jsdom tests.
-      }
-
-      unobserve(): void {
-        // noop
-      }
-
-      disconnect(): void {
-        // noop
-      }
+  class ResizeObserverPolyfill {
+    observe(): void {
+      // jsdom has no layout engine; tests only need Radix components to mount.
     }
 
-    Object.defineProperty(globalThis, "ResizeObserver", {
-      value: ResizeObserverPolyfill,
-      writable: true,
-    });
+    unobserve(): void {
+      // jsdom has no layout engine; tests only need Radix components to mount.
+    }
+
+    disconnect(): void {
+      // jsdom has no layout engine; tests only need Radix components to mount.
+    }
   }
+
+  Object.defineProperty(window, "ResizeObserver", {
+    configurable: true,
+    writable: true,
+    value: ResizeObserverPolyfill,
+  });
+  Object.defineProperty(globalThis, "ResizeObserver", {
+    configurable: true,
+    writable: true,
+    value: ResizeObserverPolyfill,
+  });
 
   // jsdom in vitest sometimes ships without a Storage implementation;
   // ensure both window.localStorage and window.sessionStorage are present.
@@ -93,34 +86,14 @@ beforeAll(() => {
     });
   }
 
-  // Initialise i18next synchronously with the real catalogs so component
-  // tests don't have to mock useTranslation. The production app uses
-  // i18next-http-backend to lazy-load catalogs (which jsdom can't reach);
-  // in tests we ship them inline.
+  // Initialise i18next synchronously with the same bundled catalogs as the app.
   void i18next.use(initReactI18next).init({
     lng: "en",
     fallbackLng: "en",
     supportedLngs: ["en", "nl"],
-    ns: ["common", "auth", "products", "admin", "artists", "errors"],
+    ns: I18N_NAMESPACES,
     defaultNS: "common",
-    resources: {
-      en: {
-        common: enCommon,
-        auth: enAuth,
-        admin: enAdmin,
-        artists: enArtists,
-        products: enProducts,
-        errors: enErrors,
-      },
-      nl: {
-        common: nlCommon,
-        auth: nlAuth,
-        admin: nlAdmin,
-        artists: nlArtists,
-        products: nlProducts,
-        errors: nlErrors,
-      },
-    },
+    resources,
     interpolation: { escapeValue: false },
     react: { useSuspense: false },
   });

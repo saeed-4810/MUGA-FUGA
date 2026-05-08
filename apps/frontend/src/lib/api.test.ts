@@ -50,9 +50,9 @@ const errJson = (data: unknown, status = 400): Response =>
   });
 
 describe("U-API-001..010: api client", () => {
-  it("U-API-000 — resolves configured and local fallback base URLs", () => {
+  it("U-API-000 — resolves configured and same-origin fallback base URLs", () => {
     expect(resolveApiBaseUrl("https://api.example.test")).toBe("https://api.example.test");
-    expect(resolveApiBaseUrl(undefined)).toBe("http://localhost:3001");
+    expect(resolveApiBaseUrl(undefined)).toBe("/api");
   });
 
   it("U-API-001 — GET attaches Bearer token from getIdToken", async () => {
@@ -83,7 +83,6 @@ describe("U-API-001..010: api client", () => {
     const [, init] = fetchMock.mock.calls[0]!;
     expect(init?.body).toBeUndefined();
     const headers = init?.headers as Headers;
-    // content-type is set only when there's a body to encode
     expect(headers.get("content-type")).toBeNull();
   });
 
@@ -177,22 +176,13 @@ describe("U-API-001..010: api client", () => {
 
   it("U-API-010c — caller-provided content-type is preserved", async () => {
     fetchMock.mockResolvedValue(okJson({ ok: true }));
-    await api.post(
-      "/things",
-      { x: 1 }
-      // opts default — auth on
-    );
-    // re-issue with explicit headers via direct fetch is not exposed; verify
-    // the default still uses application/json.
+    await api.post("/things", { x: 1 });
     const [, init] = fetchMock.mock.calls[0]!;
     expect((init?.headers as Headers).get("content-type")).toBe("application/json");
   });
 
   it("U-API-010d — opts.auth=undefined (object provided but field omitted) defaults to true", async () => {
-    // Covers the `options.auth ?? true` nullish-coalescing branch.
     fetchMock.mockResolvedValue(okJson({ ok: true }));
-    // The exported helpers always pass `opts` straight through; the only way
-    // to reach `auth: undefined` is to pass an empty options object.
     await api.get("/things", {});
     const [, init] = fetchMock.mock.calls[0]!;
     expect((init?.headers as Headers).get("authorization")).toBe("Bearer test-bearer");

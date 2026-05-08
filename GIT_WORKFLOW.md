@@ -65,9 +65,9 @@ Examples:
    Push is rejected if any gate fails. Bypass with `--no-verify` is discouraged.
 
 4. **Open a PR** against `main` and fill the PR template.
-5. **CI re-runs all gates** in a clean environment (lint, typecheck, test, build, docker, lighthouse).
-6. **(Optional) Add the `preview` label** to deploy a Firebase Hosting preview
-   channel and run Playwright E2E against the preview URL.
+5. **CI re-runs all gates** in a clean environment (lint, typecheck, test, build, docker).
+6. **(Optional) Add labels**: `preview` deploys a Firebase Hosting preview
+   channel; adding `e2e` as well runs Playwright against the preview URL.
 7. **Request reviewer** per CODEOWNERS (4h SLA).
 8. **Address review** — push fixup commits; pre-commit / pre-push enforced again.
 9. **Squash-merge to `main`** when approved. Feature branch is auto-deleted.
@@ -116,7 +116,7 @@ git push origin v0.2.1
 
 Configured on GitHub:
 
-- Required CI checks: `install`, `lint`, `typecheck`, `test`, `build`, `docker`, `lighthouse` (on PR).
+- Required CI checks: `install`, `lint`, `typecheck`, `test`, `build`, `docker`.
 - Required reviews: ≥ 1 CODEOWNERS approval.
 - Linear history (squash merges only).
 - Force push blocked.
