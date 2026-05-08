@@ -1,6 +1,6 @@
 # MUGA — Music Product Management System
 
-> Take-home submission — Senior Full-Stack Engineer (frontend-leaning).
+
 > **Stack**: Node.js + Express + Firebase Admin · Next.js App Router SSR + React + Tailwind · Firestore · Firebase Auth · Cloud Run · Firebase Hosting · GitHub Actions.
 
 MUGA is a small product management system for a music catalog. A customer signs in with Google, creates a release, selects or requests an artist, uploads cover art, and submits the product for review. An admin then approves or rejects the product before it appears in the catalog.
