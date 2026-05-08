@@ -1,0 +1,31 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - apps/frontend/Dockerfile
+      - -t
+      - ${_IMAGE}
+      - --build-arg
+      - NEXT_PUBLIC_API_URL=https://muga-staging.web.app/api
+      - --build-arg
+      - NEXT_PUBLIC_APP_VERSION=${_APP_VERSION}
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_API_KEY=${_FIREBASE_API_KEY}
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=muga-staging.firebaseapp.com
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_PROJECT_ID=muga-staging
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=muga-staging-cover-art
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_APP_ID=${_FIREBASE_APP_ID}
+      - --build-arg
+      - NEXT_PUBLIC_SENTRY_DSN=${_SENTRY_DSN}
+      - --build-arg
+      - NEXT_PUBLIC_SENTRY_ENVIRONMENT=staging
+      - --build-arg
+      - NEXT_PUBLIC_SUPPORTED_LOCALES=en,nl
+      - .
+images:
+  - ${_IMAGE}

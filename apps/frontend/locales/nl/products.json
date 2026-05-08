@@ -1,7 +1,7 @@
 {
   "list": {
     "title": "Producten",
-    "subtitle": "Bekijk de muziekcatalogus.",
+    "subtitle": "Bekijk gepubliceerde releases en volg je inzendingen in behandeling.",
     "actions": { "create": "Product aanmaken" },
     "empty": {
       "title": "Nog geen producten",
@@ -13,6 +13,7 @@
     "coverAlt": "Hoes van {{name}}",
     "coverFallback": "Geen hoes beschikbaar",
     "cardLabel": "{{name}} van {{artist}}, {{status}}",
+    "pendingPrivateNote": "Alleen zichtbaar voor jou tot goedkeuring.",
     "columns": {
       "name": "Naam",
       "artist": "Artiest"

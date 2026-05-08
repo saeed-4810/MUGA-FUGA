@@ -1,7 +1,7 @@
 {
   "list": {
     "title": "Products",
-    "subtitle": "Browse the music catalog.",
+    "subtitle": "Browse published releases and track your pending submissions.",
     "actions": { "create": "Create product" },
     "empty": {
       "title": "No products yet",
@@ -13,6 +13,7 @@
     "coverAlt": "Cover art for {{name}}",
     "coverFallback": "No cover art available",
     "cardLabel": "{{name}} by {{artist}}, {{status}}",
+    "pendingPrivateNote": "Only visible to you until approved.",
     "columns": {
       "name": "Name",
       "artist": "Artist"

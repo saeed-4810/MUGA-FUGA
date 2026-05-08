@@ -8,6 +8,7 @@
  *   - photo URL renders as <img>; absent photo renders the email-initial fallback
  *   - sign-out click triggers signOut
  *   - admin role label differs from customer (i18n keyed)
+ *   - role switch control is owned by the shell floating toggle, not UserMenu
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -149,8 +150,7 @@ describe("UserMenu — header dropdown for the signed-in/signed-out states", () 
     expect(roleLine).not.toHaveTextContent(/customer/i);
   });
 
-  it("U-ROLE-SWITCH-001 — signed-in customer sees demo hint and can switch to admin", async () => {
-    const switchRole = vi.fn(async () => undefined);
+  it("U-AUTH-002g — signed-in menu no longer renders the experimental role switch action", () => {
     useAuthMock.mockReturnValue({
       ...authDefaults,
       user: {
@@ -163,61 +163,10 @@ describe("UserMenu — header dropdown for the signed-in/signed-out states", () 
       loading: false,
       signIn: vi.fn(),
       signOut: vi.fn(),
-      switchRole,
-    });
-    const user = userEvent.setup();
-    render(<UserMenu />);
-
-    expect(screen.getAllByText(/experimental role switcher/i).length).toBeGreaterThan(0);
-    await user.click(screen.getByRole("button", { name: /switch to admin/i }));
-
-    expect(switchRole).toHaveBeenCalledWith("admin");
-    expect(screen.getByText(/role switched/i)).toBeInTheDocument();
-  });
-
-  it("U-ROLE-SWITCH-002 — admin sees switch-to-customer action and loading disables it", () => {
-    useAuthMock.mockReturnValue({
-      ...authDefaults,
-      switchingRole: true,
-      user: {
-        uid: "usr_marcus_admin",
-        email: "marcus@muga.app",
-        role: "admin",
-        displayName: "Marcus Reed",
-        photoURL: null,
-      },
-      loading: false,
-      signIn: vi.fn(),
-      signOut: vi.fn(),
     });
     render(<UserMenu />);
 
-    const button = screen.getByRole("button", { name: /switching role/i });
-    expect(button).toBeDisabled();
-  });
-
-  it("U-ROLE-SWITCH-003 — role switch failures surface user-safe error copy", async () => {
-    useAuthMock.mockReturnValue({
-      ...authDefaults,
-      user: {
-        uid: "usr_saeed_h",
-        email: "saeedh582@gmail.com",
-        role: "customer",
-        displayName: "Saeed Hassanpour",
-        photoURL: null,
-      },
-      loading: false,
-      signIn: vi.fn(),
-      signOut: vi.fn(),
-      switchRole: vi.fn(async () => {
-        throw new Error("gate disabled");
-      }),
-    });
-    const user = userEvent.setup();
-    render(<UserMenu />);
-
-    await user.click(screen.getByRole("button", { name: /switch to admin/i }));
-
-    expect(screen.getByText(/role switch failed/i)).toBeInTheDocument();
+    expect(screen.queryByText(/experimental role switcher/i)).toBeNull();
+    expect(screen.queryByRole("switch", { name: /admin mode/i })).toBeNull();
   });
 });

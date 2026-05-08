@@ -336,7 +336,8 @@ export const openApiSpec = {
             name: "status",
             in: "query",
             schema: { type: "string", enum: ["pending", "published", "rejected"] },
-            description: "Admin-only status filter; customers always receive published products.",
+            description:
+              "Admin-only status filter. Customers receive published products plus their own pending products.",
           },
         ],
         responses: {

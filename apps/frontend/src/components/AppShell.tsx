@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 
+import { RoleSwitchToggle } from "./RoleSwitchToggle";
+
 import { MobileNavigation, Sidebar, TopBar } from "@/features/shell";
 
 export const AppShell = ({
@@ -25,6 +27,7 @@ export const AppShell = ({
         <TopBar onOpenMenu={() => setMobileOpen(true)} />
         <main className="animate-fade-in flex-1 px-4 py-6 lg:px-8">{children}</main>
       </div>
+      <RoleSwitchToggle />
     </div>
   );
 };

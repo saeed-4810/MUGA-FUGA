@@ -80,14 +80,15 @@ vi.mock("../src/lib/firebase.js", () => {
     },
   });
 
-  const makeQuery = (filter: { status?: string } = {}) => ({
+  const makeQuery = (filter: { ownerUid?: string; status?: string } = {}) => ({
     orderBy: () => makeQuery(filter),
     limit: () => makeQuery(filter),
-    where: (_field: string, _op: string, value: string) => makeQuery({ ...filter, status: value }),
+    where: (field: string, _op: string, value: string) => makeQuery({ ...filter, [field]: value }),
     get: async () => {
       if (dbBehaviour.getMode === "throw") throw new Error("firestore unavailable");
       const docs = Array.from(store.entries())
         .filter(([, rec]) => !filter.status || rec.data.status === filter.status)
+        .filter(([, rec]) => !filter.ownerUid || rec.data.ownerUid === filter.ownerUid)
         .map(([id, rec]) => ({
           id,
           data: () => rec.data,
@@ -494,14 +495,27 @@ describe("POST /products — creating a product (CTR-003)", () => {
 });
 
 describe("GET /products — listing products (CTR-004)", () => {
-  it("T-PROD-004 — customers only see published products", async () => {
-    seedProduct({ id: "prod_midnights", status: "published", ownerUid: "usr_jamie_lee" });
-    seedProduct({ id: "prod_pending_a", status: "pending", ownerUid: "usr_jamie_lee" });
-    seedProduct({ id: "prod_rejected_b", status: "rejected", ownerUid: "usr_jamie_lee" });
+  it("T-PROD-004 — customers see published products plus their own pending products", async () => {
+    seedProduct({
+      id: "prod_midnights",
+      status: "published",
+      ownerUid: "usr_jamie_lee",
+      createdAt: "2026-05-01T10:00:00.000Z",
+    });
+    seedProduct({
+      id: "prod_saeed_pending",
+      status: "pending",
+      ownerUid: "usr_saeed_h",
+      createdAt: "2026-05-02T10:00:00.000Z",
+    });
+    seedProduct({ id: "prod_jamie_pending", status: "pending", ownerUid: "usr_jamie_lee" });
+    seedProduct({ id: "prod_saeed_rejected", status: "rejected", ownerUid: "usr_saeed_h" });
     const res = await request(buildApp()).get("/products").set("x-test-user", SAEED);
     expect(res.status).toBe(200);
-    expect(res.body.items).toHaveLength(1);
-    expect(res.body.items[0]!.id).toBe("prod_midnights");
+    expect(res.body.items.map((item: Product) => item.id)).toEqual([
+      "prod_saeed_pending",
+      "prod_midnights",
+    ]);
   });
 
   it("T-PROD-005 — admin sees all products at any status by default", async () => {
@@ -608,8 +622,8 @@ describe("GET /products — listing products (CTR-004)", () => {
     expect(res.body.items[0]!.status).toBe("pending");
   });
 
-  it("T-PROD-006 — empty store → empty list (NOT a 404)", async () => {
-    seedProduct({ id: "prod_pending_a", status: "pending" });
+  it("T-PROD-006 — no published or own pending products → empty list (NOT a 404)", async () => {
+    seedProduct({ id: "prod_pending_a", status: "pending", ownerUid: "usr_jamie_lee" });
     const res = await request(buildApp()).get("/products").set("x-test-user", SAEED);
     expect(res.status).toBe(200);
     expect(res.body.items).toEqual([]);
