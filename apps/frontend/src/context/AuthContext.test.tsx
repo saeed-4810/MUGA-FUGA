@@ -11,6 +11,7 @@
  */
 import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const fbState: {
@@ -38,6 +39,7 @@ vi.mock("../lib/firebase", () => ({
   googleSignIn: () => fbState.signInImpl(),
   signOut: () => fbState.signOutImpl(),
   getIdToken: () => fbState.getIdTokenImpl(),
+  getCurrentUser: () => fbState.currentUser,
   auth: () => null,
 }));
 
@@ -46,6 +48,11 @@ vi.mock("../lib/api", () => ({
   api: {
     post: (...args: unknown[]) => apiPostMock(...args),
   },
+}));
+
+const switchRoleOnServerMock = vi.fn();
+vi.mock("../features/auth/role-switch-action", () => ({
+  switchRoleOnServer: (role: unknown) => switchRoleOnServerMock(role),
 }));
 
 const createSessionMock = vi.fn(async (_user: unknown) => undefined);
@@ -58,17 +65,27 @@ vi.mock("../lib/session-client", () => ({
 import { AuthProvider, isLocalhostUrl, readLocalhostE2eUser, useAuth } from "./AuthContext";
 
 const Probe = () => {
-  const { user, loading, signIn, signOut } = useAuth();
+  const { user, loading, switchingRole, signIn, signOut, switchRole } = useAuth();
+  const [switchError, setSwitchError] = useState("");
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
+      <span data-testid="switching-role">{String(switchingRole)}</span>
       <span data-testid="uid">{user?.uid ?? "anon"}</span>
       <span data-testid="role">{user?.role ?? "none"}</span>
       <span data-testid="email">{user?.email ?? ""}</span>
       <span data-testid="display">{user?.displayName ?? ""}</span>
       <span data-testid="photo">{user?.photoURL ?? ""}</span>
+      <span data-testid="switch-error">{switchError}</span>
       <button onClick={() => void signIn()}>signin</button>
       <button onClick={() => void signOut()}>signout</button>
+      <button
+        onClick={() =>
+          void switchRole("admin").catch((error: Error) => setSwitchError(error.message))
+        }
+      >
+        switch-admin
+      </button>
     </div>
   );
 };
@@ -77,8 +94,10 @@ beforeEach(() => {
   fbState.cb = null;
   fbState.signInImpl = vi.fn(async () => ({}));
   fbState.signOutImpl = vi.fn(async () => undefined);
+  fbState.currentUser = null;
   sessionStorage.clear();
   apiPostMock.mockReset();
+  switchRoleOnServerMock.mockReset();
   createSessionMock.mockClear();
   destroySessionMock.mockClear();
 });
@@ -248,5 +267,107 @@ describe("AuthContext — Firebase auth lifecycle + role bootstrap", () => {
     expect(fbState.cb).not.toBeNull();
     unmount();
     expect(fbState.cb).toBeNull();
+  });
+
+  it("U-AUTH-CTX-008 — switchRole calls the backend, refreshes the token, recreates the session, and updates role state", async () => {
+    const user = userEvent.setup();
+    const refresh = vi.fn(async () => "fresh-role-token");
+    fbState.currentUser = { getIdToken: refresh };
+    switchRoleOnServerMock.mockResolvedValueOnce({
+      ok: true,
+      uid: "usr_saeed_h",
+      email: "saeedh582@gmail.com",
+      role: "admin",
+    });
+    render(
+      <AuthProvider
+        initialUser={{ uid: "usr_saeed_h", email: "saeedh582@gmail.com", role: "customer" }}
+      >
+        <Probe />
+      </AuthProvider>
+    );
+
+    await user.click(screen.getByText("switch-admin"));
+
+    expect(switchRoleOnServerMock).toHaveBeenCalledWith("admin");
+    expect(apiPostMock).not.toHaveBeenCalledWith("/me/role", expect.anything());
+    expect(refresh).toHaveBeenCalledWith(true);
+    expect(createSessionMock).toHaveBeenCalledWith(fbState.currentUser);
+    expect(screen.getByTestId("role").textContent).toBe("admin");
+    expect(screen.getByTestId("switching-role").textContent).toBe("false");
+  });
+
+  it("U-AUTH-CTX-009 — switchRole rejects when Firebase has no current user and does not spoof local state", async () => {
+    const user = userEvent.setup();
+    render(
+      <AuthProvider
+        initialUser={{ uid: "usr_saeed_h", email: "saeedh582@gmail.com", role: "customer" }}
+      >
+        <Probe />
+      </AuthProvider>
+    );
+
+    await expect(user.click(screen.getByText("switch-admin"))).resolves.toBeUndefined();
+
+    expect(switchRoleOnServerMock).not.toHaveBeenCalled();
+    expect(apiPostMock).not.toHaveBeenCalledWith("/me/role", expect.anything());
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("role").textContent).toBe("customer");
+    expect(screen.getByTestId("switch-error").textContent).toBe(
+      "No active Firebase user for role switch."
+    );
+  });
+
+  it("U-AUTH-CTX-010 — switchRole can hydrate local user state from the backend when no local user exists yet", async () => {
+    const user = userEvent.setup();
+    const refresh = vi.fn(async () => "fresh-role-token");
+    fbState.currentUser = { getIdToken: refresh };
+    switchRoleOnServerMock.mockResolvedValueOnce({
+      ok: true,
+      uid: "usr_new_admin",
+      email: "new.admin@muga.app",
+      role: "admin",
+    });
+    render(
+      <AuthProvider initialUser={null}>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await user.click(screen.getByText("switch-admin"));
+
+    expect(switchRoleOnServerMock).toHaveBeenCalledWith("admin");
+    expect(apiPostMock).not.toHaveBeenCalledWith("/me/role", expect.anything());
+    expect(refresh).toHaveBeenCalledWith(true);
+    expect(createSessionMock).toHaveBeenCalledWith(fbState.currentUser);
+    expect(screen.getByTestId("uid").textContent).toBe("usr_new_admin");
+    expect(screen.getByTestId("email").textContent).toBe("new.admin@muga.app");
+    expect(screen.getByTestId("role").textContent).toBe("admin");
+  });
+
+  it("U-AUTH-CTX-011 — switchRole surfaces server-action failure without refreshing token or spoofing role", async () => {
+    const user = userEvent.setup();
+    const refresh = vi.fn(async () => "fresh-role-token");
+    fbState.currentUser = { getIdToken: refresh };
+    switchRoleOnServerMock.mockResolvedValueOnce({
+      ok: false,
+      message: "Role switch failed.",
+    });
+    render(
+      <AuthProvider
+        initialUser={{ uid: "usr_saeed_h", email: "saeedh582@gmail.com", role: "customer" }}
+      >
+        <Probe />
+      </AuthProvider>
+    );
+
+    await user.click(screen.getByText("switch-admin"));
+
+    expect(switchRoleOnServerMock).toHaveBeenCalledWith("admin");
+    expect(refresh).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("role").textContent).toBe("customer");
+    expect(screen.getByTestId("switch-error").textContent).toBe("Role switch failed.");
+    expect(screen.getByTestId("switching-role").textContent).toBe("false");
   });
 });

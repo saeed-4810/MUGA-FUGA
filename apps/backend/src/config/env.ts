@@ -30,6 +30,12 @@ const EnvSchema = z.object({
         .filter(Boolean)
     ),
 
+  EXPERIMENTAL_ROLE_SWITCH_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((value) => value === "true"),
+
   SENTRY_DSN: z.string().optional().default(""),
   SENTRY_ENVIRONMENT: z.string().default("development"),
   SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
