@@ -46,7 +46,7 @@ firebase login
 | Runtime SA             | `muga-backend@muga-staging.iam.gserviceaccount.com`                                                                                                          | `muga-backend@muga-production.iam.gserviceaccount.com`                     |
 | Deploy SA (GH Actions) | `github-deploy@muga-staging.iam.gserviceaccount.com`                                                                                                         | `github-deploy@muga-production.iam.gserviceaccount.com`                    |
 | Workload Identity Pool | `projects/438419642765/locations/global/workloadIdentityPools/github-pool`                                                                                   | `projects/524228723694/locations/global/workloadIdentityPools/github-pool` |
-| OIDC Provider          | `.../providers/github-provider` (scoped to repo `saeed-4810/MUGA`)                                                                                           | same                                                                       |
+| OIDC Provider          | `.../providers/github-provider` (repo binding includes `saeed-4810/MUGA-FUGA`; legacy `saeed-4810/MUGA` remains allowed)                                     | same                                                                       |
 | Firebase Web App ID    | `1:438419642765:web:64ee9c4956469a129945c4`                                                                                                                  | `1:524228723694:web:f73b069f91784933d684ff`                                |
 | Firebase Web API key   | `AIzaSyDXT-A5PCyAW39kK8LLNWeUKEaGeEWlrio`                                                                                                                    | `AIzaSyA83pvqqaro-AbDGx-8eK0IVihJov9u1kI`                                  |
 | Auth domain            | `muga-staging.firebaseapp.com`                                                                                                                               | `muga-production.firebaseapp.com`                                          |
@@ -61,7 +61,7 @@ firebase login
 ```bash
 # ---- edit these two ----
 BILLING_ACCOUNT=018601-XXXXXX-XXXXXX
-GITHUB_REPO=saeed-4810/MUGA
+GITHUB_REPO=saeed-4810/MUGA-FUGA
 # -------------------------
 
 REGION=europe-west1
@@ -304,7 +304,7 @@ and secrets are pulled from Secret Manager at job time via WIF.
 
 ### Branch protection on `main`
 
-https://github.com/saeed-4810/MUGA/settings/branches → Add rule for `main`:
+https://github.com/saeed-4810/MUGA-FUGA/settings/branches → Add rule for `main`:
 
 - ☑ Require a pull request before merging
 - ☑ Require approvals: 1
@@ -359,17 +359,17 @@ E2E before merge.
 
 ```bash
 gh label create preview \
-  --repo saeed-4810/MUGA \
+  --repo saeed-4810/MUGA-FUGA \
   --description "Deploy a Firebase Hosting preview channel for this PR" \
   --color "1d76db"
 
 gh label create e2e \
-  --repo saeed-4810/MUGA \
+  --repo saeed-4810/MUGA-FUGA \
   --description "Run Playwright E2E against the PR preview channel" \
   --color "5319e7"
 ```
 
-Or via UI: https://github.com/saeed-4810/MUGA/labels → **New label** →
+Or via UI: https://github.com/saeed-4810/MUGA-FUGA/labels → **New label** →
 name `preview` / `e2e`, any color.
 
 ### How the flow works

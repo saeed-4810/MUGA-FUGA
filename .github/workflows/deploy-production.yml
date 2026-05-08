@@ -17,7 +17,8 @@ env:
   GCP_PROJECT: muga-production
   GCP_PROJECT_NUMBER: "524228723694"
   ARTIFACT_REPO: muga
-  SERVICE: muga-backend
+  BACKEND_SERVICE: muga-backend
+  FRONTEND_SERVICE: muga-frontend
   BACKEND_RUN_URL: https://muga-backend-524228723694.europe-west1.run.app/api
   # PagerDuty Events API v2 endpoint. US region: events.pagerduty.com.
   # EU region: events.eu.pagerduty.com. Swap here based on your PD org region.
@@ -58,7 +59,7 @@ jobs:
           intervalSeconds: 15
 
   deploy-frontend:
-    name: Frontend → Firebase Hosting (production)
+    name: Frontend → Cloud Run + Firebase Hosting (production)
     needs: wait-for-ci
     runs-on: ubuntu-latest
     environment:
@@ -88,19 +89,38 @@ jobs:
         id: secrets
         run: |
           echo "SENTRY_DSN=$(gcloud secrets versions access latest --secret=sentry-dsn-frontend --project=${{ env.GCP_PROJECT }})" >> $GITHUB_OUTPUT
-      - name: Build frontend (production env)
-        env:
-          API_URL: ${{ env.BACKEND_RUN_URL }}
-          NEXT_PUBLIC_API_URL: https://muga-production.web.app/api
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ env.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ env.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ env.NEXT_PUBLIC_FIREBASE_APP_ID }}
-          NEXT_PUBLIC_SENTRY_DSN: ${{ steps.secrets.outputs.SENTRY_DSN }}
-          NEXT_PUBLIC_SENTRY_ENVIRONMENT: production
-          NEXT_PUBLIC_APP_VERSION: ${{ github.ref_name }}
-        run: pnpm --filter @muga/frontend build
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+      - name: Build & push frontend image
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.ARTIFACT_REPO }}/${{ env.FRONTEND_SERVICE }}:${{ github.ref_name }}"
+          docker build \
+            -f apps/frontend/Dockerfile \
+            -t "$IMAGE" \
+            --build-arg NEXT_PUBLIC_API_URL=https://muga-production.web.app/api \
+            --build-arg NEXT_PUBLIC_APP_VERSION=${{ github.ref_name }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=${{ env.NEXT_PUBLIC_FIREBASE_API_KEY }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.NEXT_PUBLIC_FIREBASE_PROJECT_ID }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=${{ env.NEXT_PUBLIC_FIREBASE_APP_ID }} \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN=${{ steps.secrets.outputs.SENTRY_DSN }} \
+            --build-arg NEXT_PUBLIC_SENTRY_ENVIRONMENT=production \
+            --build-arg NEXT_PUBLIC_SUPPORTED_LOCALES=en,nl \
+            .
+          docker push "$IMAGE"
+          echo "FRONTEND_IMAGE=$IMAGE" >> $GITHUB_ENV
+      - name: Deploy frontend to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.FRONTEND_SERVICE }} \
+            --project=${{ env.GCP_PROJECT }} \
+            --region=${{ env.GCP_REGION }} \
+            --image="${FRONTEND_IMAGE}" \
+            --allow-unauthenticated \
+            --port=8080 \
+            --cpu=1 --memory=512Mi \
+            --min-instances=1 --max-instances=20 \
+            --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.GCP_PROJECT }},SESSION_COOKIE_NAME=__session,API_URL=${{ env.BACKEND_RUN_URL }},NEXT_PUBLIC_API_URL=https://muga-production.web.app/api,NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.GCP_PROJECT }}"
       - name: Deploy Firebase (hosting + firestore + storage)
         run: |
           gcloud storage buckets update gs://muga-production-cover-art \
@@ -131,13 +151,13 @@ jobs:
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
       - name: Build & push image
         run: |
-          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE }}:${{ github.ref_name }}"
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.ARTIFACT_REPO }}/${{ env.BACKEND_SERVICE }}:${{ github.ref_name }}"
           docker build -f apps/backend/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
       - name: Deploy to Cloud Run (with Secret Manager mounts)
         run: |
-          gcloud run deploy ${{ env.SERVICE }} \
+          gcloud run deploy ${{ env.BACKEND_SERVICE }} \
             --project=${{ env.GCP_PROJECT }} \
             --region=${{ env.GCP_REGION }} \
             --image="${IMAGE}" \
