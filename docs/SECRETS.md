@@ -245,7 +245,7 @@ root `README.md`.
    on container start only).
 5. Invalidate related state (rotate Sentry DSN → clear relay caches; rotate
    Slack webhook → delete the old one; PagerDuty → invalidate integration).
-6. File an incident postmortem at `docs/governance/postmortem-YYYY-MM-DD-leak.md`.
+6. Write a short incident note with what leaked, what was rotated, and what changed to prevent a repeat.
 
 ---
 
@@ -259,7 +259,7 @@ root `README.md`.
 - Review: any PR touching workflows, `env.example`, or `firebase.json` is
   routed to CODEOWNERS (Backend reviewer).
 
-Override the scanner (requires Decision Log entry):
+Override the scanner only when you have a documented reason:
 
 ```bash
 SKIP_SECRET_SCAN=1 git commit -m "..."

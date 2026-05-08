@@ -7,8 +7,9 @@ and to reproduce in a fresh GCP org.
 
 > **Scope**: GCP projects, Firebase apps, IAM, Workload Identity Federation,
 > Secret Manager, Artifact Registry, Firestore, Storage, Cloud Run runtime
-> identities. Does **not** cover Sentry / Slack / PagerDuty (those are manual
-> console setups; see §Appendix B).
+> identities, Cloud Monitoring, Sentry, Slack, and PagerDuty. The deployed
+> `muga-staging` and `muga-production` environments already have this shape;
+> the commands below explain how to reproduce it.
 
 ---
 
@@ -34,23 +35,24 @@ firebase login
 
 ## Provisioned state (fresh-from-click, reviewer can skip)
 
-| Resource                              | `muga-staging`                                                                                                                                               | `muga-production`                                                          |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| Project number                        | `438419642765`                                                                                                                                               | `524228723694`                                                             |
-| Region                                | `europe-west1`                                                                                                                                               | `europe-west1`                                                             |
-| Firestore location                    | `eur3` (multi-region)                                                                                                                                        | `eur3`                                                                     |
-| Storage bucket                        | `muga-staging-cover-art`                                                                                                                                     | `muga-production-cover-art`                                                |
-| Artifact Registry repo                | `europe-west1-docker.pkg.dev/muga-staging/muga`                                                                                                              | `europe-west1-docker.pkg.dev/muga-production/muga`                         |
-| Cloud Run service                     | `muga-backend` (will exist after first deploy)                                                                                                               | `muga-backend`                                                             |
-| Runtime SA                            | `muga-backend@muga-staging.iam.gserviceaccount.com`                                                                                                          | `muga-backend@muga-production.iam.gserviceaccount.com`                     |
-| Deploy SA (GH Actions)                | `github-deploy@muga-staging.iam.gserviceaccount.com`                                                                                                         | `github-deploy@muga-production.iam.gserviceaccount.com`                    |
-| Workload Identity Pool                | `projects/438419642765/locations/global/workloadIdentityPools/github-pool`                                                                                   | `projects/524228723694/locations/global/workloadIdentityPools/github-pool` |
-| OIDC Provider                         | `.../providers/github-provider` (scoped to repo `saeed-4810/MUGA`)                                                                                           | same                                                                       |
-| Firebase Web App ID                   | `1:438419642765:web:64ee9c4956469a129945c4`                                                                                                                  | `1:524228723694:web:f73b069f91784933d684ff`                                |
-| Firebase Web API key                  | `AIzaSyDXT-A5PCyAW39kK8LLNWeUKEaGeEWlrio`                                                                                                                    | `AIzaSyA83pvqqaro-AbDGx-8eK0IVihJov9u1kI`                                  |
-| Auth domain                           | `muga-staging.firebaseapp.com`                                                                                                                               | `muga-production.firebaseapp.com`                                          |
-| Hosting URL                           | `https://muga-staging.web.app`                                                                                                                               | `https://muga-production.web.app`                                          |
-| Secret Manager secrets (placeholders) | `sentry-dsn-backend`, `sentry-dsn-frontend`, `slack-webhook-url`, `pagerduty-integration-key`, `initial-admin-emails`, `firebase-api-key`, `firebase-app-id` | same                                                                       |
+| Resource               | `muga-staging`                                                                                                                                               | `muga-production`                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Project number         | `438419642765`                                                                                                                                               | `524228723694`                                                             |
+| Region                 | `europe-west1`                                                                                                                                               | `europe-west1`                                                             |
+| Firestore location     | `eur3` (multi-region)                                                                                                                                        | `eur3`                                                                     |
+| Storage bucket         | `muga-staging-cover-art`                                                                                                                                     | `muga-production-cover-art`                                                |
+| Artifact Registry repo | `europe-west1-docker.pkg.dev/muga-staging/muga`                                                                                                              | `europe-west1-docker.pkg.dev/muga-production/muga`                         |
+| Cloud Run service      | `muga-backend` (will exist after first deploy)                                                                                                               | `muga-backend`                                                             |
+| Runtime SA             | `muga-backend@muga-staging.iam.gserviceaccount.com`                                                                                                          | `muga-backend@muga-production.iam.gserviceaccount.com`                     |
+| Deploy SA (GH Actions) | `github-deploy@muga-staging.iam.gserviceaccount.com`                                                                                                         | `github-deploy@muga-production.iam.gserviceaccount.com`                    |
+| Workload Identity Pool | `projects/438419642765/locations/global/workloadIdentityPools/github-pool`                                                                                   | `projects/524228723694/locations/global/workloadIdentityPools/github-pool` |
+| OIDC Provider          | `.../providers/github-provider` (scoped to repo `saeed-4810/MUGA`)                                                                                           | same                                                                       |
+| Firebase Web App ID    | `1:438419642765:web:64ee9c4956469a129945c4`                                                                                                                  | `1:524228723694:web:f73b069f91784933d684ff`                                |
+| Firebase Web API key   | `AIzaSyDXT-A5PCyAW39kK8LLNWeUKEaGeEWlrio`                                                                                                                    | `AIzaSyA83pvqqaro-AbDGx-8eK0IVihJov9u1kI`                                  |
+| Auth domain            | `muga-staging.firebaseapp.com`                                                                                                                               | `muga-production.firebaseapp.com`                                          |
+| Hosting URL            | `https://muga-staging.web.app`                                                                                                                               | `https://muga-production.web.app`                                          |
+| Secret Manager secrets | `sentry-dsn-backend`, `sentry-dsn-frontend`, `slack-webhook-url`, `pagerduty-integration-key`, `initial-admin-emails`, `firebase-api-key`, `firebase-app-id` | same                                                                       |
+| Observability          | Sentry, Slack, Cloud Logging, Cloud Monitoring uptime checks, log metrics, and alert policies                                                                | Same, plus PagerDuty for page-level alerts                                 |
 
 ---
 
@@ -270,11 +272,11 @@ echo -n "you@example.com" | \
 
 ---
 
-## Manual steps (cannot automate)
+## Console settings already applied
 
-These require browser clicks in specific consoles:
+These settings live in product consoles rather than in source code. They are already applied in the staging and production environments. The notes below show where to verify or recreate them.
 
-### ☐ Enable Google sign-in provider in Firebase Auth (both projects)
+### Enable Google sign-in provider in Firebase Auth (both projects)
 
 1. https://console.firebase.google.com/project/muga-staging/authentication/providers
 2. **Sign-in method** → Google → Enable → pick a project-support email → Save
@@ -291,7 +293,7 @@ These require browser clicks in specific consoles:
      `muga-production.web.app` + `muga-production.firebaseapp.com`.
 5. Repeat step 1-3 for `muga-production` (skip step 4).
 
-### ☐ Set up GitHub repository secrets (environment variables, not values)
+### GitHub repository variables
 
 Even with WIF, GitHub Actions still reads a handful of non-secret identifiers
 from repo settings. Add these in **Settings → Secrets and variables → Actions
@@ -300,7 +302,7 @@ from repo settings. Add these in **Settings → Secrets and variables → Action
 _none needed right now_ — all config is baked into the workflow `env:` blocks,
 and secrets are pulled from Secret Manager at job time via WIF.
 
-### ☐ Enable branch protection on `main`
+### Branch protection on `main`
 
 https://github.com/saeed-4810/MUGA/settings/branches → Add rule for `main`:
 
@@ -316,10 +318,34 @@ https://github.com/saeed-4810/MUGA/settings/branches → Add rule for `main`:
 - ☒ Allow force pushes (leave unchecked)
 - ☒ Allow deletions (leave unchecked)
 
-### ☐ Optional: configure `.web.app` hosting targets
+### Hosting targets
 
-Firebase Hosting auto-creates `<project>.web.app`. No action needed unless
-you want a custom domain (see §Appendix C).
+Firebase Hosting auto-creates `<project>.web.app`; those URLs are the submitted staging and production entrypoints. No custom domain is required.
+
+## Live monitoring setup
+
+The monitoring setup is active in both cloud projects.
+
+| Area             | Staging                                                                                                                            | Production                                                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Sentry           | Backend and frontend projects receive staging events with release and environment tags.                                            | Backend and frontend projects receive production events with release and environment tags. |
+| Slack            | Receives staging deploy, uptime, readiness, and synthetic drill notifications.                                                     | Receives production notify and page alerts.                                                |
+| PagerDuty        | Not connected for normal staging alerts.                                                                                           | Connected to production page-level incidents.                                              |
+| Cloud Monitoring | Uptime checks and alert policies watch the staging frontend, backend health, readiness, latency, 5xx ratio, and log-based metrics. | Same checks and policies, with production routing.                                         |
+| Cloud Logging    | Stores backend JSON logs with request ids and alert fields.                                                                        | Same structure, separated in the production project.                                       |
+
+The policy files are stored in `.github/monitoring/`. They cover:
+
+- frontend uptime;
+- backend `/health` uptime;
+- backend `/healthz/ready` readiness;
+- Cloud Run 5xx ratio;
+- Cloud Run p95 latency;
+- auth failure spikes;
+- upload validation failure spikes;
+- admin moderation and override audit metrics.
+
+Sentry handles the application side: backend exceptions, browser exceptions, issue regressions, crash-free session checks, frontend stuck-loading alerts, and web-vitals breadcrumbs.
 
 ## Preview channels and PR E2E (label-gated)
 
