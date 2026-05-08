@@ -3,16 +3,64 @@
 > Take-home submission — Senior Full-Stack Engineer (frontend-leaning).
 > **Stack**: Node.js + Express + Firebase Admin · Next.js App Router SSR + React + Tailwind · Firestore · Firebase Auth · Cloud Run · Firebase Hosting · GitHub Actions.
 
-A simple product management system for a music-centric environment. Artists and labels can create albums / singles / EPs with cover art; an admin approves them before they go live.
+MUGA is a small product management system for a music catalog. A customer signs in with Google, creates a release, selects or requests an artist, uploads cover art, and submits the product for review. An admin then approves or rejects the product before it appears in the catalog.
+
+The repo is meant to be reviewed as a working full-stack slice: API contracts, SSR auth, signed uploads, Firestore data, Firebase hosting, CI/CD, monitoring, i18n, theming, and tests are all wired together rather than described as future work.
+
+---
+
+## How to review this project
+
+If you only have a few minutes, start here:
+
+1. Read this README for the product story, architecture, and local commands.
+2. Open [Requirement coverage](./docs/FEATURE_REQUIREMENTS.md) to see how the assignment maps to the implementation.
+3. Open [Architecture](./docs/ARCHITECTURE.md) for the browser → Firebase Hosting → Cloud Run → Firebase services flow.
+4. Open [Auth and RBAC](./docs/AUTH_AND_RBAC.md) and the [RBAC matrix](./docs/product/rbac-matrix.md) to understand the customer/admin split.
+5. Open [API contracts](./docs/api/api-spec.md) and [Database schema](./docs/api/database-schema.md) for the backend shape.
+6. Open [Test scenarios](./docs/TEST_SCENARIOS.md) and [QA coverage matrix](./docs/qa/coverage-matrix.md) for the coverage story.
+
+The complete docs index is at [docs/README.md](./docs/README.md).
+
+---
+
+## Product story
+
+MUGA has two human actors:
+
+- **Customer** — signs in, creates products, uploads cover art, requests missing artists, and sees published catalog items plus their own submissions.
+- **Admin** — reviews products and artist requests, sees all statuses, and approves or rejects records before they become public.
+
+The platform services are also part of the story:
+
+- **Firebase Auth** identifies users through Google login.
+- **Express on Cloud Run** verifies tokens, enforces role rules, validates requests, writes Firestore records, and signs upload URLs.
+- **Next.js on Cloud Run** renders the dashboard and protects SSR routes with a Firebase session cookie.
+- **Firebase Storage + Hosting CDN** handle cover-art delivery.
+- **Sentry and Cloud Monitoring** provide error, performance, and alerting signals.
+
+The core workflow is:
+
+```text
+Customer signs in
+  → selects or requests an artist
+  → uploads cover art through a signed Storage URL
+  → submits a product as pending
+  → admin reviews it
+  → approved products appear in the catalog
+```
+
+Role details are documented in [Auth and RBAC](./docs/AUTH_AND_RBAC.md) and [RBAC matrix](./docs/product/rbac-matrix.md).
 
 ---
 
 ## Functional scope
 
-- **Create a Product** — name, artist name, cover art (image upload).
-- **Read products** — list view with cover-art thumbnail, name, artist name.
+- **Create a Product** — name, artist, cover art, and approval status.
+- **Read products** — list view with cover-art thumbnail, name, artist, and status where relevant.
 - **Update / Delete** — full CRUD.
 - **Admin approval** — admin role confirms creation before a product becomes visible.
+- **Artist requests** — customers can request missing artists; admins moderate them.
 
 ## Non-functional scope
 
@@ -39,7 +87,7 @@ A simple product management system for a music-centric environment. Artists and 
 ```bash
 pnpm install
 cp apps/backend/env.example apps/backend/.env
-cp apps/frontend/env.example apps/frontend/.env
+cp apps/frontend/env.example apps/frontend/.env.local
 # fill env files (Firebase projects + Sentry DSNs)
 
 pnpm dev               # frontend (5173) + backend (3001)
@@ -65,12 +113,13 @@ docker build -f apps/frontend/Dockerfile -t muga-frontend .
 
 ## Documentation
 
-Start here if you are reviewing the project:
+The docs are written to be read from inside this repo; they do not depend on a separate project-management folder.
 
 - [Application docs](./docs/README.md) — reading order for the docs in this repo
 - [Requirement coverage](./docs/FEATURE_REQUIREMENTS.md) — assignment requirements mapped to implementation areas
 - [Architecture](./docs/ARCHITECTURE.md) — how the frontend, backend, Firebase, and Cloud Run pieces fit
 - [Auth and RBAC](./docs/AUTH_AND_RBAC.md) — Google sign-in, custom claims, and admin/customer rules
+- [RBAC matrix](./docs/product/rbac-matrix.md) — what each actor can do
 - [User flows](./docs/USER_FLOWS.md) — customer and admin journeys
 - [API contracts](./docs/api/api-spec.md) — REST endpoints and error conventions
 - [Database schema](./docs/api/database-schema.md) — Firestore collections, indexes, and rules summary
@@ -139,7 +188,7 @@ Firebase Auth Google provider. Backend verifies the bearer ID token via Firebase
 
 ### Product lifecycle
 
-Products default to `pending` for customers, `published` for admins. Admin sees all products with a `?status` filter; customers see only `published`. Admin approves via `POST /products/:id/approve` → `published`; rejects via `POST /products/:id/reject` with optional reason → `rejected`. Every admin action emits a structured `alert.kind=admin_action` log (dashboard-only, no paging).
+Products default to `pending` for customers and can be created as `published` by admins. Admins see all products with a `?status` filter; customers see published products and their own relevant submissions. Admins approve via `POST /products/:id/approve` or reject via `POST /products/:id/reject` with an optional reason. Every admin action emits a structured `alert.kind=admin_action` log for audit visibility.
 
 ### Image upload (signed URL, two-step)
 
@@ -162,7 +211,7 @@ Every backend alert is a Pino log line with `alert.kind` + `alert.severity` fiel
 
 - **Staging** — every merge to `main` deploys to `muga-staging` (Cloud Run + Firebase Hosting) via `.github/workflows/deploy-staging.yml`.
 - **Production** — SemVer tag `vX.Y.Z` pushed on `main` triggers `.github/workflows/deploy-production.yml`.
-- Deploy failure pages the on-call via Slack + PagerDuty (alert A9).
+- Staging failures notify Slack; production page-level incidents route to Slack + PagerDuty.
 
 | Target     | Frontend                                     | Backend                                |
 | ---------- | -------------------------------------------- | -------------------------------------- |
@@ -179,7 +228,7 @@ Every backend alert is a Pino log line with `alert.kind` + `alert.severity` fiel
 
 **Branch model**: GitHub Flow. `main` is the integration + staging branch; every merge auto-deploys to staging. Production deploys are SemVer tags on `main`. Feature branches are `<type>/MUGA-xxx-<slug>`.
 
-**Local quality gate** (Husky `pre-push`, mirrors CI):
+**Local checks** (Husky `pre-push`, mirrors CI):
 
 ```bash
 pnpm lint         # ESLint, max-warnings=0
@@ -189,7 +238,7 @@ pnpm test:ci      # vitest, 100% coverage threshold
 
 ---
 
-## Quality gates
+## Quality checks
 
 | Gate                 | Enforcement                                                            |
 | -------------------- | ---------------------------------------------------------------------- |
@@ -202,7 +251,7 @@ pnpm test:ci      # vitest, 100% coverage threshold
 | Code review          | CODEOWNERS-enforced; ≥1 approval required                              |
 | Linear history       | Squash merges only; force-push blocked on `main`                       |
 
-Current status (on `main`): **119 tests pass** across both workspaces with 100% line / branch / function / statement coverage.
+Current status: **427 tests pass** across both workspaces with 100% line / branch / function / statement coverage in the pre-push check.
 
 ---
 
