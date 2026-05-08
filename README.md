@@ -54,6 +54,17 @@ Role details are documented in [Auth and RBAC](./docs/AUTH_AND_RBAC.md) and [RBA
 
 ---
 
+## Live environments
+
+| Environment | App                             | Swagger UI                               | OpenAPI JSON                                     |
+| ----------- | ------------------------------- | ---------------------------------------- | ------------------------------------------------ |
+| Staging     | https://muga-staging.web.app    | https://muga-staging.web.app/api/docs    | https://muga-staging.web.app/api/openapi.json    |
+| Production  | https://muga-production.web.app | https://muga-production.web.app/api/docs | https://muga-production.web.app/api/openapi.json |
+
+Staging follows `main`; production is released from SemVer tags.
+
+---
+
 ## Functional scope
 
 - **Create a Product** — name, artist, cover art, and approval status.
