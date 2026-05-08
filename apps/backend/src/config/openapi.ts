@@ -1,16 +1,33 @@
+const errorResponse = { $ref: "#/components/responses/Error" };
+const productResponse = {
+  description: "Product",
+  content: { "application/json": { schema: { $ref: "#/components/schemas/Product" } } },
+};
+const artistResponse = {
+  description: "Artist",
+  content: { "application/json": { schema: { $ref: "#/components/schemas/Artist" } } },
+};
+
 export const openApiSpec = {
   openapi: "3.1.0",
   info: {
     title: "MUGA API",
     version: "0.1.0",
     description:
-      "Music product management — CRUD over `products` with admin-approval workflow, " +
-      "Google-auth-only via Firebase Auth, cover-art via signed-URL upload to Firebase Storage.",
+      "REST API for music product and artist management. The API uses Firebase Auth bearer tokens, " +
+      "admin/customer RBAC, signed Storage upload URLs, product and artist moderation, and structured " +
+      "request logging with x-request-id correlation.",
   },
   servers: [
-    { url: "http://localhost:3001", description: "Local" },
-    { url: "https://api.staging.muga.app", description: "Staging" },
-    { url: "https://api.muga.app", description: "Production" },
+    { url: "http://localhost:3001/api", description: "Local backend" },
+    { url: "https://muga-staging.web.app/api", description: "Staging via Firebase Hosting" },
+    { url: "https://muga-production.web.app/api", description: "Production via Firebase Hosting" },
+  ],
+  tags: [
+    { name: "health", description: "Liveness and readiness probes" },
+    { name: "auth", description: "Authenticated user bootstrap" },
+    { name: "products", description: "Product CRUD, uploads, and moderation" },
+    { name: "artists", description: "Artist CRUD, uploads, and moderation" },
   ],
   components: {
     securitySchemes: {
@@ -21,15 +38,78 @@ export const openApiSpec = {
         description: "Firebase ID token",
       },
     },
+    responses: {
+      Error: {
+        description: "Canonical error envelope",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+      },
+      NoContent: { description: "No content" },
+    },
     schemas: {
       ErrorEnvelope: {
         type: "object",
         required: ["code", "message", "requestId"],
         properties: {
-          code: { type: "string" },
+          code: { type: "string", example: "VALIDATION_ERROR" },
           message: { type: "string" },
           requestId: { type: "string" },
           details: { type: "object", additionalProperties: true },
+        },
+      },
+      AuthUser: {
+        type: "object",
+        required: ["uid", "email", "role"],
+        properties: {
+          uid: { type: "string" },
+          email: { type: "string", format: "email" },
+          role: { type: "string", enum: ["admin", "customer"] },
+          emailVerified: { type: "boolean" },
+        },
+      },
+      HealthResponse: {
+        type: "object",
+        required: ["status", "service", "timestamp"],
+        properties: {
+          status: { type: "string", enum: ["ok"] },
+          service: { type: "string", example: "muga-backend" },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      ReadinessResponse: {
+        type: "object",
+        required: ["status", "firestore", "latency_ms", "timestamp"],
+        properties: {
+          status: { type: "string", enum: ["ready"] },
+          firestore: { type: "string", enum: ["ok"] },
+          latency_ms: { type: "integer", minimum: 0 },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      SignedUploadRequest: {
+        type: "object",
+        required: ["contentType", "fileSize"],
+        properties: {
+          contentType: { type: "string", enum: ["image/jpeg", "image/png", "image/webp"] },
+          fileSize: { type: "integer", minimum: 1, maximum: 5242880 },
+        },
+      },
+      SignedUploadResponse: {
+        type: "object",
+        required: ["uploadUrl", "objectPath", "expiresAt"],
+        properties: {
+          uploadUrl: { type: "string", format: "uri" },
+          objectPath: { type: "string" },
+          expiresAt: { type: "string", format: "date-time" },
+        },
+      },
+      ProductArtist: {
+        type: "object",
+        required: ["id", "name", "status"],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string", maxLength: 120 },
+          imageUrl: { type: "string", format: "uri" },
+          status: { type: "string", enum: ["pending", "published", "rejected"] },
         },
       },
       Product: {
@@ -50,16 +130,7 @@ export const openApiSpec = {
           id: { type: "string" },
           name: { type: "string", maxLength: 120 },
           artistId: { type: "string" },
-          artist: {
-            type: "object",
-            required: ["id", "name", "status"],
-            properties: {
-              id: { type: "string" },
-              name: { type: "string", maxLength: 120 },
-              imageUrl: { type: "string", format: "uri" },
-              status: { type: "string", enum: ["pending", "published", "rejected"] },
-            },
-          },
+          artist: { $ref: "#/components/schemas/ProductArtist" },
           coverArtPath: { type: "string" },
           coverArtUrl: { type: "string", format: "uri" },
           status: { type: "string", enum: ["pending", "published", "rejected"] },
@@ -72,14 +143,26 @@ export const openApiSpec = {
           rejectionReason: { type: "string" },
         },
       },
-      AuthUser: {
+      ProductList: {
         type: "object",
-        required: ["uid", "email", "role"],
+        required: ["items"],
+        properties: { items: { type: "array", items: { $ref: "#/components/schemas/Product" } } },
+      },
+      CreateProductInput: {
+        type: "object",
+        required: ["name", "artistId", "coverArtPath"],
         properties: {
-          uid: { type: "string" },
-          email: { type: "string", format: "email" },
-          role: { type: "string", enum: ["admin", "customer"] },
-          emailVerified: { type: "boolean" },
+          name: { type: "string", minLength: 1, maxLength: 120 },
+          artistId: { type: "string" },
+          coverArtPath: { type: "string" },
+        },
+      },
+      UpdateProductInput: {
+        type: "object",
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 120 },
+          artistId: { type: "string" },
+          coverArtPath: { type: "string" },
         },
       },
       Artist: {
@@ -114,262 +197,373 @@ export const openApiSpec = {
           rejectionReason: { type: "string" },
         },
       },
+      ArtistList: {
+        type: "object",
+        required: ["items"],
+        properties: { items: { type: "array", items: { $ref: "#/components/schemas/Artist" } } },
+      },
+      CreateArtistInput: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 120 },
+          bio: { type: "string", maxLength: 2000 },
+          country: { type: "string", pattern: "^[A-Z]{2}$" },
+          imageObjectPath: { type: "string" },
+        },
+      },
+      UpdateArtistInput: {
+        type: "object",
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 120 },
+          bio: { type: "string", maxLength: 2000 },
+          country: { type: "string", pattern: "^[A-Z]{2}$" },
+          imageObjectPath: { type: "string" },
+        },
+      },
+      RejectInput: {
+        type: "object",
+        properties: { reason: { type: "string", maxLength: 500 } },
+      },
     },
   },
   security: [{ bearerAuth: [] }],
   paths: {
     "/health": {
       get: {
+        tags: ["health"],
         security: [],
         summary: "Liveness probe",
-        responses: { "200": { description: "OK" } },
+        responses: {
+          "200": {
+            description: "Backend process is alive",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/HealthResponse" } },
+            },
+          },
+        },
+      },
+    },
+    "/healthz/ready": {
+      get: {
+        tags: ["health"],
+        security: [],
+        summary: "Readiness probe with Firestore check",
+        responses: {
+          "200": {
+            description: "Backend is ready and Firestore responded",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ReadinessResponse" } },
+            },
+          },
+          "500": errorResponse,
+        },
       },
     },
     "/me": {
       get: {
+        tags: ["auth"],
         summary: "Current authenticated user (CTR-001)",
         responses: {
           "200": {
-            description: "OK",
+            description: "Authenticated user",
             content: { "application/json": { schema: { $ref: "#/components/schemas/AuthUser" } } },
           },
-          "401": {
-            description: "Unauthenticated",
-            content: {
-              "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } },
-            },
-          },
+          "401": errorResponse,
         },
       },
     },
     "/me/bootstrap": {
       post: {
-        summary: "First-sign-in role bootstrap",
-        responses: { "200": { description: "OK" } },
+        tags: ["auth"],
+        summary: "First-sign-in role bootstrap (CTR-001b)",
+        responses: {
+          "200": {
+            ...productResponse,
+            description: "User role confirmed",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AuthUser" } } },
+          },
+          "401": errorResponse,
+        },
       },
     },
     "/products/signed-upload": {
       post: {
+        tags: ["products"],
         summary: "Issue cover-art upload signed URL (CTR-002)",
         requestBody: {
           required: true,
           content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["contentType", "fileSize"],
-                properties: {
-                  contentType: { type: "string", example: "image/jpeg" },
-                  fileSize: { type: "integer", maximum: 5242880 },
-                },
-              },
-            },
+            "application/json": { schema: { $ref: "#/components/schemas/SignedUploadRequest" } },
           },
         },
         responses: {
           "201": {
             description: "Signed URL issued",
             content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  required: ["uploadUrl", "objectPath", "expiresAt"],
-                  properties: {
-                    uploadUrl: { type: "string", format: "uri" },
-                    objectPath: { type: "string" },
-                    expiresAt: { type: "string", format: "date-time" },
-                  },
-                },
-              },
+              "application/json": { schema: { $ref: "#/components/schemas/SignedUploadResponse" } },
             },
           },
-          "400": { description: "Invalid content type or size" },
+          "400": errorResponse,
+          "401": errorResponse,
         },
       },
     },
     "/products": {
       post: {
+        tags: ["products"],
         summary: "Create product (CTR-003)",
+        description:
+          "Customers create pending products. Admin-created products are published immediately. Product writes validate the artistId foreign key.",
         requestBody: {
           required: true,
           content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["name", "artistId", "coverArtPath"],
-                properties: {
-                  name: { type: "string", maxLength: 120 },
-                  artistId: { type: "string" },
-                  coverArtPath: { type: "string" },
-                },
-              },
-            },
+            "application/json": { schema: { $ref: "#/components/schemas/CreateProductInput" } },
           },
         },
         responses: {
-          "201": {
-            description:
-              "Created (status=pending for customer; published for admin). Customers may attach published artists only; admins may override pending artist status with audit logging.",
-            content: { "application/json": { schema: { $ref: "#/components/schemas/Product" } } },
-          },
-          "422": {
-            description:
-              "Artist FK validation failed: ARTIST_NOT_FOUND for missing artist, ARTIST_NOT_PUBLISHED when a customer attaches a non-published artist.",
-            content: {
-              "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } },
-            },
-          },
+          "201": productResponse,
+          "400": errorResponse,
+          "401": errorResponse,
+          "422": errorResponse,
         },
       },
       get: {
+        tags: ["products"],
         summary: "List products (CTR-004)",
         parameters: [
           {
             name: "status",
             in: "query",
-            required: false,
             schema: { type: "string", enum: ["pending", "published", "rejected"] },
-            description: "Admin-only filter; ignored for customers (always 'published')",
+            description: "Admin-only status filter; customers always receive published products.",
           },
         ],
-        responses: { "200": { description: "OK (products include dereferenced artist object)" } },
+        responses: {
+          "200": {
+            description: "Visible products",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ProductList" } },
+            },
+          },
+          "401": errorResponse,
+        },
       },
     },
     "/products/{id}": {
       get: {
-        summary: "Read product (CTR-005) — includes dereferenced artist",
-        responses: { "200": { description: "OK" } },
+        tags: ["products"],
+        summary: "Read product (CTR-005)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": productResponse,
+          "401": errorResponse,
+          "404": errorResponse,
+          "422": errorResponse,
+        },
       },
       patch: {
-        summary: "Update product (CTR-006) — artistId FK/ownership validated when supplied",
-        responses: {
-          "200": { description: "OK" },
-          "422": {
-            description:
-              "Artist FK validation failed: ARTIST_NOT_FOUND for missing artist, ARTIST_NOT_PUBLISHED when a customer attaches a non-published artist.",
-            content: {
-              "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } },
-            },
+        tags: ["products"],
+        summary: "Update product (CTR-006)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/UpdateProductInput" } },
           },
+        },
+        responses: {
+          "200": productResponse,
+          "400": errorResponse,
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+          "422": errorResponse,
         },
       },
       delete: {
+        tags: ["products"],
         summary: "Delete product (CTR-007)",
-        responses: { "204": { description: "No content" } },
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "204": { $ref: "#/components/responses/NoContent" },
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+        },
       },
     },
     "/products/{id}/approve": {
-      post: { summary: "Admin approve (CTR-008)", responses: { "200": { description: "OK" } } },
+      post: {
+        tags: ["products"],
+        summary: "Admin approve product (CTR-008)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": productResponse,
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+          "409": errorResponse,
+        },
+      },
     },
     "/products/{id}/reject": {
-      post: { summary: "Admin reject (CTR-009)", responses: { "200": { description: "OK" } } },
+      post: {
+        tags: ["products"],
+        summary: "Admin reject product (CTR-009)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: false,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/RejectInput" } } },
+        },
+        responses: {
+          "200": productResponse,
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+        },
+      },
     },
     "/artists/signed-upload": {
       post: {
+        tags: ["artists"],
         summary: "Issue artist-image upload signed URL (CTR-100)",
         requestBody: {
           required: true,
           content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["contentType", "fileSize"],
-                properties: {
-                  contentType: { type: "string", example: "image/jpeg" },
-                  fileSize: { type: "integer", maximum: 5242880 },
-                },
-              },
-            },
+            "application/json": { schema: { $ref: "#/components/schemas/SignedUploadRequest" } },
           },
         },
         responses: {
           "201": {
             description: "Signed URL issued",
             content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  required: ["uploadUrl", "objectPath", "expiresAt"],
-                  properties: {
-                    uploadUrl: { type: "string", format: "uri" },
-                    objectPath: { type: "string" },
-                    expiresAt: { type: "string", format: "date-time" },
-                  },
-                },
-              },
+              "application/json": { schema: { $ref: "#/components/schemas/SignedUploadResponse" } },
             },
           },
-          "400": { description: "Invalid content type or size" },
+          "400": errorResponse,
+          "401": errorResponse,
         },
       },
     },
     "/artists": {
       post: {
-        summary: "Create artist (CTR-101) — customer→pending, admin→published",
+        tags: ["artists"],
+        summary: "Create artist (CTR-101)",
+        description:
+          "Customers create pending artists. Admin-created artists are published immediately.",
         requestBody: {
           required: true,
           content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["name"],
-                properties: {
-                  name: { type: "string", maxLength: 120 },
-                  bio: { type: "string", maxLength: 2000 },
-                  country: { type: "string", pattern: "^[A-Z]{2}$" },
-                  imageObjectPath: { type: "string" },
-                },
-              },
-            },
+            "application/json": { schema: { $ref: "#/components/schemas/CreateArtistInput" } },
           },
         },
         responses: {
-          "201": {
-            description: "Artist created",
-            content: { "application/json": { schema: { $ref: "#/components/schemas/Artist" } } },
-          },
-          "409": { description: "Name or slug already exists" },
+          "201": artistResponse,
+          "400": errorResponse,
+          "401": errorResponse,
+          "409": errorResponse,
         },
       },
       get: {
+        tags: ["artists"],
         summary: "List artists (CTR-102)",
         parameters: [
           {
             name: "status",
             in: "query",
-            required: false,
-            schema: { type: "string" },
-            description: "Single status or comma list (admin-only filter)",
+            schema: { type: "string", example: "pending,rejected" },
+            description:
+              "Single status or comma list. Admins may filter all artists; customers can filter their own artists.",
           },
           {
             name: "ownerUid",
             in: "query",
-            required: false,
             schema: { type: "string" },
-            description: "Admin filter; customer scope to own artists",
+            description: "Admin owner filter; customers may use their own uid.",
           },
         ],
-        responses: { "200": { description: "OK" } },
+        responses: {
+          "200": {
+            description: "Visible artists",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ArtistList" } },
+            },
+          },
+          "401": errorResponse,
+        },
       },
     },
     "/artists/{id}": {
-      get: { summary: "Read artist (CTR-103)", responses: { "200": { description: "OK" } } },
-      patch: { summary: "Update artist (CTR-104)", responses: { "200": { description: "OK" } } },
+      get: {
+        tags: ["artists"],
+        summary: "Read artist (CTR-103)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "200": artistResponse, "401": errorResponse, "404": errorResponse },
+      },
+      patch: {
+        tags: ["artists"],
+        summary: "Update artist (CTR-104)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/UpdateArtistInput" } },
+          },
+        },
+        responses: {
+          "200": artistResponse,
+          "400": errorResponse,
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+          "409": errorResponse,
+        },
+      },
       delete: {
-        summary: "Delete artist (CTR-105) — 409 if referenced by any product",
-        responses: { "204": { description: "No content" } },
+        tags: ["artists"],
+        summary: "Delete artist (CTR-105)",
+        description:
+          "Returns 409 when products still reference the artist. The error details include blockingProductIds.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "204": { $ref: "#/components/responses/NoContent" },
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+          "409": errorResponse,
+        },
       },
     },
     "/artists/{id}/approve": {
       post: {
-        summary: "Admin approve artist (CTR-106) — 409 if already published",
-        responses: { "200": { description: "OK" } },
+        tags: ["artists"],
+        summary: "Admin approve artist (CTR-106)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": artistResponse,
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+          "409": errorResponse,
+        },
       },
     },
     "/artists/{id}/reject": {
       post: {
-        summary: "Admin reject artist (CTR-107) — body { reason? } or default",
-        responses: { "200": { description: "OK" } },
+        tags: ["artists"],
+        summary: "Admin reject artist (CTR-107)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: false,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/RejectInput" } } },
+        },
+        responses: {
+          "200": artistResponse,
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+        },
       },
     },
   },

@@ -2,6 +2,14 @@
 
 The OpenAPI source lives in `apps/backend/src/config/openapi.ts`. Deployed environments expose the JSON spec at `/api/openapi.json` and Swagger UI at `/api/docs`.
 
+The Swagger server URLs use the Firebase Hosting API base path:
+
+- Local: `http://localhost:3001/api`
+- Staging: `https://muga-staging.web.app/api`
+- Production: `https://muga-production.web.app/api`
+
+The path table below uses the same public `/api/...` shape that reviewers call from the browser.
+
 ## Conventions
 
 - Protected routes require `Authorization: Bearer <Firebase ID token>`.
@@ -22,17 +30,18 @@ These are served by the Next.js frontend service, not by the Express API.
 
 | ID       | Method | Path                             | Auth        | Purpose                                                  |
 | -------- | ------ | -------------------------------- | ----------- | -------------------------------------------------------- |
-| CTR-000  | GET    | `/health`                        | Public      | Liveness check.                                          |
-| CTR-001  | GET    | `/me`                            | User        | Return current authenticated user.                       |
-| CTR-001b | POST   | `/me/bootstrap`                  | User        | Assign or confirm `customer`/`admin` role claim.         |
-| CTR-002  | POST   | `/products/signed-upload`        | User        | Validate cover-art metadata and issue signed upload URL. |
-| CTR-003  | POST   | `/products`                      | User        | Create product; customer defaults to `pending`.          |
-| CTR-004  | GET    | `/products?status=`              | User        | List visible products; admin may filter by status.       |
-| CTR-005  | GET    | `/products/{id}`                 | User        | Read visible product by id.                              |
-| CTR-006  | PATCH  | `/products/{id}`                 | Owner/admin | Update editable product fields.                          |
-| CTR-007  | DELETE | `/products/{id}`                 | Owner/admin | Delete product and best-effort image object.             |
-| CTR-008  | POST   | `/products/{id}/approve`         | Admin       | Publish pending product.                                 |
-| CTR-009  | POST   | `/products/{id}/reject`          | Admin       | Reject product with optional reason.                     |
+| CTR-000  | GET    | `/api/health`                    | Public      | Liveness check.                                          |
+| CTR-000b | GET    | `/api/healthz/ready`             | Public      | Readiness check; verifies Firestore responds.            |
+| CTR-001  | GET    | `/api/me`                        | User        | Return current authenticated user.                       |
+| CTR-001b | POST   | `/api/me/bootstrap`              | User        | Assign or confirm `customer`/`admin` role claim.         |
+| CTR-002  | POST   | `/api/products/signed-upload`    | User        | Validate cover-art metadata and issue signed upload URL. |
+| CTR-003  | POST   | `/api/products`                  | User        | Create product; customer defaults to `pending`.          |
+| CTR-004  | GET    | `/api/products?status=`          | User        | List visible products; admin may filter by status.       |
+| CTR-005  | GET    | `/api/products/{id}`             | User        | Read visible product by id.                              |
+| CTR-006  | PATCH  | `/api/products/{id}`             | Owner/admin | Update editable product fields.                          |
+| CTR-007  | DELETE | `/api/products/{id}`             | Owner/admin | Delete product and best-effort image object.             |
+| CTR-008  | POST   | `/api/products/{id}/approve`     | Admin       | Publish pending product.                                 |
+| CTR-009  | POST   | `/api/products/{id}/reject`      | Admin       | Reject product with optional reason.                     |
 | CTR-DOCS | GET    | `/api/docs`, `/api/openapi.json` | Public      | API documentation.                                       |
 
 ## Artist contracts
@@ -64,3 +73,7 @@ These are served by the Next.js frontend service, not by the Express API.
 ## Observability
 
 Every response carries `x-request-id`. Backend logs include `requestId`, user identity where available, route, status, and alert fields for moderation/audit events.
+
+## Swagger freshness checks
+
+The backend test suite checks that the OpenAPI document includes every shipped product, artist, auth, health, and readiness path. It also checks that the reviewer-facing server URLs use the current Firebase Hosting `/api` base path.
