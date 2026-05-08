@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslation } from "react-i18next";
 
 import { PageSurface } from "../components/Composition";
@@ -15,7 +16,7 @@ export const NotFoundPage = () => {
         <h1 className="mt-2 text-lg font-semibold">{t("notFound.title")}</h1>
         <p className="text-muted-foreground mt-2 text-sm">{t("notFound.body")}</p>
         <Button asChild className="mt-4">
-          <a href="/">{t("notFound.cta")}</a>
+          <Link href="/">{t("notFound.cta")}</Link>
         </Button>
       </Card>
     </PageSurface>

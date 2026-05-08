@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +22,9 @@ vi.mock("../../context/AuthContext", () => ({
 }));
 
 import { ArtistsPage } from "./ArtistsPage";
+
+import { useAdminArtists } from "@/features/admin/artists";
+import { trapContainerTabs } from "@/features/admin/artists/DeleteArtistDialog";
 
 type ArtistStatus = "pending" | "published" | "rejected";
 
@@ -155,6 +158,39 @@ describe("Admin ArtistsPage — list, create, edit, approve/reject, delete", () 
     expect(apiPostMock).toHaveBeenCalledWith("/artists/art_taylor_swift/reject", {
       reason: "not ready",
     });
+  });
+
+  it("U-ARTIST-005e — approve failures surface as a page alert", async () => {
+    apiGetMock.mockResolvedValueOnce({ items: [artist({ status: "pending" })] });
+    apiPostMock.mockRejectedValueOnce({
+      status: 500,
+      code: "INTERNAL",
+      message: "approval failed",
+      requestId: "rid_artist_approve",
+    });
+    const user = userEvent.setup();
+    renderPage({ initialItems: [] });
+    await user.selectOptions(screen.getByLabelText(/status/i), "pending");
+    await user.click(await screen.findByRole("button", { name: /approve taylor swift/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/INTERNAL.*approval failed/i)
+    );
+  });
+
+  it("U-ARTIST-005f — reject failures surface as a page alert", async () => {
+    apiGetMock.mockResolvedValueOnce({ items: [artist({ status: "pending" })] });
+    apiPostMock.mockRejectedValueOnce({
+      status: 500,
+      code: "INTERNAL",
+      message: "reject failed",
+      requestId: "rid_artist_reject",
+    });
+    const user = userEvent.setup();
+    renderPage({ initialItems: [] });
+    await user.selectOptions(screen.getByLabelText(/status/i), "pending");
+    await user.click(await screen.findByRole("button", { name: /reject taylor swift/i }));
+    await user.click(screen.getByRole("button", { name: /reject artist/i }));
+    await waitFor(() => expect(screen.getByText(/reject failed/i)).toBeInTheDocument());
   });
 
   it("U-ARTIST-005b — rejected status filter renders rejected status pills", async () => {
@@ -369,6 +405,24 @@ describe("Admin ArtistsPage — list, create, edit, approve/reject, delete", () 
     });
   });
 
+  it("U-ARTIST-008b — edit drawer previews an existing artist image URL", async () => {
+    const user = userEvent.setup();
+    renderPage({
+      initialItems: [artist({ imageUrl: "https://cdn.example.com/taylor.jpg" })],
+    });
+    await user.click(await screen.findByRole("button", { name: /edit taylor swift/i }));
+    expect(screen.getByAltText(/artist image preview/i)).toHaveAttribute(
+      "src",
+      "https://cdn.example.com/taylor.jpg"
+    );
+  });
+
+  it("U-ARTIST-008c — confirmDelete no-ops when no delete dialog is open", async () => {
+    const { result } = renderHook(() => useAdminArtists({ initialItems: [] }));
+    await act(() => result.current.confirmDelete());
+    expect(apiDeleteMock).not.toHaveBeenCalled();
+  });
+
   it("U-ARTIST-009 — delete confirms, calls API, and reloads", async () => {
     apiGetMock.mockResolvedValueOnce({ items: [] });
     apiDeleteMock.mockResolvedValue(undefined);
@@ -395,6 +449,16 @@ describe("Admin ArtistsPage — list, create, edit, approve/reject, delete", () 
     await user.click(screen.getByRole("button", { name: /delete taylor swift/i }));
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: /delete artist/i })).toBeNull();
+  });
+
+  it("U-ARTIST-009b2 — delete focus trap ignores containers without focusable controls", () => {
+    const event = {
+      key: "Tab",
+      preventDefault: vi.fn(),
+      shiftKey: false,
+    } as unknown as Parameters<typeof trapContainerTabs>[0];
+    trapContainerTabs(event, document.createElement("div"));
+    expect(event.preventDefault).not.toHaveBeenCalled();
   });
 
   it("U-ARTIST-009c — non-conflict delete errors surface as a page alert", async () => {

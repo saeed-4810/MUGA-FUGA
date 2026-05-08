@@ -9,7 +9,7 @@ vi.mock("../lib/api", () => ({
   },
 }));
 
-import { ArtistCombobox, type ArtistOption } from "./ArtistCombobox";
+import { ArtistCombobox, getArtistFallbackInitials, type ArtistOption } from "./ArtistCombobox";
 
 const artists: ArtistOption[] = [
   {
@@ -47,7 +47,7 @@ describe("ArtistCombobox — typeahead picker for the artist field", () => {
     expect(await screen.findByText("Taylor Swift")).toBeInTheDocument();
     expect(screen.getByText("Daft Punk")).toBeInTheDocument();
     expect(document.querySelector('img[src="https://cdn.example.com/taylor.jpg"]')).not.toBeNull();
-    expect(screen.getByText("♪")).toBeInTheDocument();
+    expect(screen.getByText("DP")).toBeInTheDocument();
     await user.click(screen.getByText("Taylor Swift"));
     expect(onChange).toHaveBeenCalledWith(artists[0]);
   });
@@ -147,5 +147,11 @@ describe("ArtistCombobox — typeahead picker for the artist field", () => {
     renderBox();
     await userEvent.click(screen.getAllByRole("combobox", { name: /artist/i })[1]!);
     expect(onRequestNew).not.toHaveBeenCalled();
+  });
+
+  it("U-FE-CLEAN-004 — derives intentional fallback initials for artists without images", () => {
+    expect(getArtistFallbackInitials("Daft Punk")).toBe("DP");
+    expect(getArtistFallbackInitials("Björk")).toBe("B");
+    expect(getArtistFallbackInitials("   ")).toBe("♪");
   });
 });

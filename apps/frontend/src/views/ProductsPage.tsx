@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -93,7 +94,7 @@ export const ProductsPage = ({
         description={t("list.subtitle")}
         action={
           <Button asChild size="sm">
-            <a href="/products/new">{t("list.actions.create")}</a>
+            <Link href="/products/new">{t("list.actions.create")}</Link>
           </Button>
         }
       />
@@ -105,7 +106,7 @@ export const ProductsPage = ({
         <EmptyState
           action={
             <Button asChild>
-              <a href="/products/new">{t("list.actions.create")}</a>
+              <Link href="/products/new">{t("list.actions.create")}</Link>
             </Button>
           }
           description={t("list.empty.body")}

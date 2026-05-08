@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 
-import { AppShell } from "../../../src/components/AppShell";
-import { AuthShell } from "../../../src/components/AuthShell";
-import { requireServerRole } from "../../../src/lib/server/auth";
-import { getServerLocale } from "../../../src/lib/server/locale";
-import { loadPendingReviewCount } from "../../../src/lib/server/pending-review";
-import { getServerTheme } from "../../../src/lib/server/theme";
+import { AppShell } from "@/components/AppShell";
+import { AuthShell } from "@/components/AuthShell";
+import { requireServerRole } from "@/lib/server/auth";
+import { getServerLocale } from "@/lib/server/locale";
+import { loadPendingReviewCount } from "@/lib/server/pending-review";
+import { getServerTheme } from "@/lib/server/theme";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const [session, locale, theme] = await Promise.all([requireServerRole("admin"), getServerLocale(), getServerTheme()]);

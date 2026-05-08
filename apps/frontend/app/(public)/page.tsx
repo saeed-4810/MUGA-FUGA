@@ -1,8 +1,8 @@
-import { AppShell } from "../../src/components/AppShell";
-import { serverApi } from "../../src/lib/server/api";
-import { getServerSession } from "../../src/lib/server/auth";
-import { loadPendingReviewCount } from "../../src/lib/server/pending-review";
-import { DashboardPage, type ArtistRequest } from "../../src/views/DashboardPage";
+import { AppShell } from "@/components/AppShell";
+import { serverApi } from "@/lib/server/api";
+import { getServerSession } from "@/lib/server/auth";
+import { loadPendingReviewCount } from "@/lib/server/pending-review";
+import { DashboardPage, type ArtistRequest } from "@/views/DashboardPage";
 
 export default async function Page() {
   const session = await getServerSession();

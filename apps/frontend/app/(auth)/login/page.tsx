@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { getServerSession } from "../../../src/lib/server/auth";
-import { LoginPage } from "../../../src/views/LoginPage";
+import { getServerSession } from "@/lib/server/auth";
+import { LoginPage } from "@/views/LoginPage";
 
 export default async function Page() {
   const session = await getServerSession();

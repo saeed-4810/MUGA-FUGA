@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
-import { AuthShell } from "../../src/components/AuthShell";
-import { getServerSession } from "../../src/lib/server/auth";
-import { getServerLocale } from "../../src/lib/server/locale";
-import { getServerTheme } from "../../src/lib/server/theme";
+import { AuthShell } from "@/components/AuthShell";
+import { getServerSession } from "@/lib/server/auth";
+import { getServerLocale } from "@/lib/server/locale";
+import { getServerTheme } from "@/lib/server/theme";
 
 export default async function AuthLayout({ children }: { children: ReactNode }) {
   const [session, locale, theme] = await Promise.all([getServerSession(), getServerLocale(), getServerTheme()]);

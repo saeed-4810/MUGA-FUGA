@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslation } from "react-i18next";
 
 import { LoadingSkeleton, PageSurface, StatusPill } from "../components/Composition";
@@ -31,7 +32,7 @@ export const DashboardPage = ({ initialRequests = null }: DashboardPageProps = {
           description={t("dashboard.signedOutBody")}
         />
         <Button asChild size="lg">
-          <a href="/login">{t("nav.signIn")}</a>
+          <Link href="/login">{t("nav.signIn")}</Link>
         </Button>
       </PageSurface>
     );
@@ -70,7 +71,7 @@ export const DashboardPage = ({ initialRequests = null }: DashboardPageProps = {
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => (
-          <a
+          <Link
             key={card.href}
             href={card.href}
             className="focus-visible:ring-ring hover:shadow-glow focus-visible:ring-offset-background rounded-2xl outline-none transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2"
@@ -84,7 +85,7 @@ export const DashboardPage = ({ initialRequests = null }: DashboardPageProps = {
                 <CardDescription>{card.body}</CardDescription>
               </CardHeader>
             </Card>
-          </a>
+          </Link>
         ))}
       </div>
       {user.role !== "admin" && (

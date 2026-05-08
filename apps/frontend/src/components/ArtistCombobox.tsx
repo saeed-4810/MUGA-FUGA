@@ -26,7 +26,18 @@ interface ArtistComboboxProps {
 }
 
 const normalise = (value: string) => value.trim().toLowerCase();
-const getInitial = (_name: string) => "♪";
+
+export const getArtistFallbackInitials = (name: string) => {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toLocaleUpperCase())
+    .join("");
+
+  return initials || "♪";
+};
 
 export const ArtistCombobox = ({
   value,
@@ -183,7 +194,7 @@ export const ArtistCombobox = ({
                     />
                   ) : (
                     <span className="bg-muted text-muted-foreground grid h-8 w-8 place-items-center rounded-full">
-                      {getInitial(artist.name)}
+                      {getArtistFallbackInitials(artist.name)}
                     </span>
                   )}
                   <span>{artist.name}</span>
@@ -208,7 +219,7 @@ export const ArtistCombobox = ({
             <img src={value.imageUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
           ) : (
             <span className="bg-muted text-muted-foreground grid h-9 w-9 place-items-center rounded-full text-xs font-semibold">
-              {getInitial(value.name)}
+              {getArtistFallbackInitials(value.name)}
             </span>
           )}
           <div>

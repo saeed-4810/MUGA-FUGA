@@ -4,8 +4,9 @@ import "react-easy-crop/react-easy-crop.css";
 import type { Metadata } from "next";
 import { type ReactNode } from "react";
 
-import { getServerLocale } from "../src/lib/server/locale";
-import { getServerTheme, getServerThemeClass } from "../src/lib/server/theme";
+import { getServerLocale } from "@/lib/server/locale";
+import { getServerTheme, getServerThemeClass } from "@/lib/server/theme";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme-bootstrap";
 
 export const metadata: Metadata = {
   title: "MUGA",
@@ -21,8 +22,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html:
-              "(()=>{try{const t=localStorage.getItem('muga.theme')||document.cookie.match(/(?:^|; )muga\\.theme=([^;]+)/)?.[1]||'system';const d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light'}catch{}})();",
+            __html: THEME_BOOTSTRAP_SCRIPT,
           }}
         />
       </head>

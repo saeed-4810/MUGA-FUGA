@@ -1,7 +1,7 @@
-import type { ArtistOption } from "../../../../src/components/ArtistCombobox";
-import { serverApi } from "../../../../src/lib/server/api";
-import { requireServerSession } from "../../../../src/lib/server/auth";
-import { CreateProductPage } from "../../../../src/views/CreateProductPage";
+import type { ArtistOption } from "@/components/ArtistCombobox";
+import { serverApi } from "@/lib/server/api";
+import { requireServerSession } from "@/lib/server/auth";
+import { CreateProductPage } from "@/views/CreateProductPage";
 
 export default async function Page() {
   const session = await requireServerSession();

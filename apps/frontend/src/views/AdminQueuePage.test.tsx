@@ -4,7 +4,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const apiGetMock = vi.fn();
 const apiPostMock = vi.fn();
-vi.mock("../lib/api", () => ({
+vi.mock("@/lib/api", () => ({
   api: {
     get: (...args: unknown[]) => apiGetMock(...args),
     post: (...args: unknown[]) => apiPostMock(...args),

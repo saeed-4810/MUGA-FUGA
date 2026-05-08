@@ -24,11 +24,11 @@ vi.mock("react-easy-crop", () => ({
   },
 }));
 
-vi.mock("../lib/imageCrop", () => ({
+vi.mock("@/lib/imageCrop", () => ({
   getCroppedImageFile: (...args: unknown[]) => getCroppedImageFileMock(...args),
 }));
 
-vi.mock("../components/ui/slider", () => ({
+vi.mock("@/components/ui/slider", () => ({
   Slider: ({ id, onValueChange }: { id?: string; onValueChange?: (value: number[]) => void }) => (
     <button onClick={() => onValueChange?.([2])} type="button">
       {id}
@@ -38,7 +38,7 @@ vi.mock("../components/ui/slider", () => ({
 
 const apiGetMock = vi.fn();
 const apiPostMock = vi.fn();
-vi.mock("../lib/api", () => ({
+vi.mock("@/lib/api", () => ({
   api: {
     get: (...args: unknown[]) => apiGetMock(...args),
     post: (...args: unknown[]) => apiPostMock(...args),
@@ -46,12 +46,12 @@ vi.mock("../lib/api", () => ({
 }));
 
 const uploadCoverArtMock = vi.fn();
-vi.mock("../lib/uploads", () => ({
+vi.mock("@/lib/uploads", () => ({
   uploadCoverArt: (...args: unknown[]) => uploadCoverArtMock(...args),
 }));
 
 const navigateToMock = vi.fn();
-vi.mock("../lib/navigation", () => ({
+vi.mock("@/lib/navigation", () => ({
   navigateTo: (...args: unknown[]) => navigateToMock(...args),
 }));
 

@@ -1,7 +1,7 @@
-import { serverApi } from "../../../../src/lib/server/api";
-import { toSerializableApiError } from "../../../../src/lib/server/api-error";
-import { requireServerRole } from "../../../../src/lib/server/auth";
-import { type Artist, ArtistsPage } from "../../../../src/views/admin/ArtistsPage";
+import { serverApi } from "@/lib/server/api";
+import { toSerializableApiError } from "@/lib/server/api-error";
+import { requireServerRole } from "@/lib/server/auth";
+import { type Artist, ArtistsPage } from "@/views/admin/ArtistsPage";
 
 export default async function Page() {
   const session = await requireServerRole("admin");
@@ -11,6 +11,6 @@ export default async function Page() {
     });
     return <ArtistsPage initialItems={res.items} />;
   } catch (error) {
-    return <ArtistsPage initialError={toSerializableApiError(error, "Unable to load artists")} />;
+    return <ArtistsPage initialError={toSerializableApiError(error, "ADMIN_ARTISTS_LOAD_FAILED")} />;
   }
 }

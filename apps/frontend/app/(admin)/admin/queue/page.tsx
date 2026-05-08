@@ -1,7 +1,7 @@
-import { serverApi } from "../../../../src/lib/server/api";
-import { toSerializableApiError } from "../../../../src/lib/server/api-error";
-import { requireServerRole } from "../../../../src/lib/server/auth";
-import { AdminQueuePage, type AdminQueueProduct } from "../../../../src/views/AdminQueuePage";
+import { serverApi } from "@/lib/server/api";
+import { toSerializableApiError } from "@/lib/server/api-error";
+import { requireServerRole } from "@/lib/server/auth";
+import { AdminQueuePage, type AdminQueueProduct } from "@/views/AdminQueuePage";
 
 export default async function Page() {
   const session = await requireServerRole("admin");
@@ -11,6 +11,6 @@ export default async function Page() {
     });
     return <AdminQueuePage initialItems={res.items} />;
   } catch (error) {
-    return <AdminQueuePage initialError={toSerializableApiError(error, "Unable to load queue")} />;
+    return <AdminQueuePage initialError={toSerializableApiError(error, "ADMIN_QUEUE_LOAD_FAILED")} />;
   }
 }
