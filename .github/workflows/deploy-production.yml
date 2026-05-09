@@ -166,7 +166,7 @@ jobs:
             --port=8080 \
             --cpu=1 --memory=512Mi \
             --min-instances=1 --max-instances=20 \
-            --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.GCP_PROJECT }},FIREBASE_STORAGE_BUCKET=muga-production-cover-art,SENTRY_ENVIRONMENT=production,CORS_ALLOWED_ORIGINS=https://muga-production.web.app,ALERT_READY_LATENCY_BUDGET_MS=1500" \
+            --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.GCP_PROJECT }},FIREBASE_STORAGE_BUCKET=muga-production-cover-art,SENTRY_ENVIRONMENT=production,CORS_ALLOWED_ORIGINS=https://muga-production.web.app,ALERT_READY_LATENCY_BUDGET_MS=1500,EXPERIMENTAL_ROLE_SWITCH_ENABLED=true" \
             --set-secrets="SENTRY_DSN=sentry-dsn-backend:latest,SLACK_WEBHOOK_URL=slack-webhook-url:latest,INITIAL_ADMIN_EMAILS=initial-admin-emails:latest,PAGERDUTY_INTEGRATION_KEY=pagerduty-integration-key:latest"
 
   smoke-production:

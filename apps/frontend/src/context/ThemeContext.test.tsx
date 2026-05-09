@@ -1,4 +1,4 @@
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, beforeEach } from "vitest";
 
@@ -106,7 +106,7 @@ describe("U-THEME-001..004: theme provider", () => {
     expect(() => act(() => render(<Bad />) as unknown as void)).toThrow(/within <ThemeProvider/);
   });
 
-  it("U-THEME-005b — system theme resolves to dark when matchMedia matches dark + reacts to OS change", async () => {
+  it("U-THEME-005b — system theme resolves after mount when matchMedia matches dark + reacts to OS change", async () => {
     let listener: (() => void) | null = null;
     const mq = {
       matches: true,
@@ -128,13 +128,19 @@ describe("U-THEME-001..004: theme provider", () => {
           <Probe />
         </ThemeProvider>
       );
-      expect(screen.getByTestId("resolved").textContent).toBe("dark");
-      expect(document.documentElement.classList.contains("dark")).toBe(true);
+      await waitFor(() => expect(screen.getByTestId("resolved").textContent).toBe("dark"));
+      await waitFor(() => expect(document.documentElement.classList.contains("dark")).toBe(true));
 
       mq.matches = false;
-      if (listener) (listener as () => void)();
+      act(() => {
+        if (listener) (listener as () => void)();
+      });
+      expect(screen.getByTestId("resolved").textContent).toBe("light");
       mq.matches = true;
-      if (listener) (listener as () => void)();
+      act(() => {
+        if (listener) (listener as () => void)();
+      });
+      expect(screen.getByTestId("resolved").textContent).toBe("dark");
     } finally {
       window.matchMedia = original;
     }

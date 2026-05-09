@@ -88,11 +88,30 @@ export const productsRouter = (env: Env): ExpressRouter => {
     try {
       const isAdmin = req.user!.role === "admin";
       const requestedStatus = req.query["status"];
-      let q = db(env).collection(COLLECTION).orderBy("createdAt", "desc").limit(100);
+      const collection = db(env).collection(COLLECTION);
+      let q = collection.orderBy("createdAt", "desc").limit(100);
       if (isAdmin && typeof requestedStatus === "string") {
         q = q.where("status", "==", requestedStatus);
       } else if (!isAdmin) {
-        q = q.where("status", "==", "published");
+        const [publishedSnap, ownPendingSnap] = await Promise.all([
+          collection
+            .where("status", "==", "published")
+            .orderBy("createdAt", "desc")
+            .limit(100)
+            .get(),
+          collection
+            .where("ownerUid", "==", req.user!.uid)
+            .where("status", "==", "pending")
+            .orderBy("createdAt", "desc")
+            .limit(100)
+            .get(),
+        ]);
+        const items = [...publishedSnap.docs, ...ownPendingSnap.docs]
+          .map((d) => ProductSchema.parse(d.data()))
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          .slice(0, 100);
+        res.json({ items: await Promise.all(items.map((p) => toProductResponse(env, p))) });
+        return;
       }
       const snap = await q.get();
       const items = snap.docs.map((d) => ProductSchema.parse(d.data()));

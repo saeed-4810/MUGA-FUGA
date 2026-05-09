@@ -1,8 +1,9 @@
 import type { User } from "firebase/auth";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { switchRoleOnServer } from "../features/auth/role-switch-action";
 import { api } from "../lib/api";
-import { onAuthStateChanged, googleSignIn, signOut } from "../lib/firebase";
+import { onAuthStateChanged, googleSignIn, signOut, getCurrentUser } from "../lib/firebase";
 import { createSession, destroySession } from "../lib/session-client";
 
 export type Role = "admin" | "customer";
@@ -18,8 +19,10 @@ export interface MugaUser {
 interface AuthContextValue {
   user: MugaUser | null;
   loading: boolean;
+  switchingRole: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+  switchRole: (role: Role) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,6 +43,7 @@ export const AuthProvider = ({
 }) => {
   const [user, setUser] = useState<MugaUser | null>(initialUser);
   const [loading, setLoading] = useState(!initialUser);
+  const [switchingRole, setSwitchingRole] = useState(false);
 
   useEffect(() => {
     const e2eUser = readLocalhostE2eUser(window.location.href, sessionStorage);
@@ -84,6 +88,7 @@ export const AuthProvider = ({
     () => ({
       user,
       loading,
+      switchingRole,
       signIn: async () => {
         await googleSignIn();
       },
@@ -92,8 +97,27 @@ export const AuthProvider = ({
         await signOut();
         setUser(null);
       },
+      switchRole: async (role: Role) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error("No active Firebase user for role switch.");
+
+        setSwitchingRole(true);
+        try {
+          const updated = await switchRoleOnServer(role);
+          if (!updated.ok) throw new Error(updated.message);
+          await firebaseUser.getIdToken(true);
+          await createSession(firebaseUser);
+          setUser((current) =>
+            current
+              ? { ...current, uid: updated.uid, email: updated.email, role: updated.role }
+              : { uid: updated.uid, email: updated.email, role: updated.role }
+          );
+        } finally {
+          setSwitchingRole(false);
+        }
+      },
     }),
-    [user, loading]
+    [user, loading, switchingRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

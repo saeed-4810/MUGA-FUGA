@@ -2,6 +2,7 @@ import "../src/styles/index.css";
 import "react-easy-crop/react-easy-crop.css";
 
 import type { Metadata } from "next";
+import Script from "next/script";
 import { type ReactNode } from "react";
 
 import { getServerLocale } from "@/lib/server/locale";
@@ -20,7 +21,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html className={themeClassName} lang={locale} suppressHydrationWarning>
       <head>
-        <script
+        <Script
+          id="muga-theme-bootstrap"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: THEME_BOOTSTRAP_SCRIPT,
           }}

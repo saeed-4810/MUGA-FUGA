@@ -104,12 +104,47 @@ describe("ProductsPage — listing albums", () => {
     });
     expect(screen.getByText("Midnights")).toBeInTheDocument();
     expect(screen.getByText("Taylor Swift")).toBeInTheDocument();
-    expect(screen.getByText(/published/i)).toBeInTheDocument();
+    expect(screen.getByText(/^published$/i)).toBeInTheDocument();
     const img = document.querySelector('img[src="https://cdn.example/midnights.jpg"]');
     expect(img).not.toBeNull();
     expect(img).toHaveAttribute("alt", expect.stringContaining("Midnights"));
     expect(img).toHaveAttribute("loading", "lazy");
     expect(screen.getByLabelText(/midnights by taylor swift, published/i)).toBeInTheDocument();
+  });
+
+  it("U-PROD-003b — customer list can show their pending product beside published catalog items", () => {
+    renderServerPage({
+      initialProducts: [
+        {
+          id: "prod_pending_demo",
+          name: "Pending Demo",
+          artist: { id: "art_saeed", name: "Saeed Project", status: "published" },
+          coverArtPath: "cover-art/usr_saeed_h/pending-demo.jpg",
+          status: "pending",
+          ownerEmail: "saeedh582@gmail.com",
+          createdAt: "2026-05-02T10:00:00Z",
+        },
+        {
+          id: "prod_published_catalog",
+          name: "Published Catalog",
+          artist: { id: "art_catalog", name: "Catalog Artist", status: "published" },
+          coverArtPath: "cover-art/usr_jamie_lee/catalog.jpg",
+          status: "published",
+          ownerEmail: "jamie.lee@gmail.com",
+          createdAt: "2026-05-01T10:00:00Z",
+        },
+      ],
+    });
+
+    expect(screen.getByText("Pending Demo")).toBeInTheDocument();
+    expect(screen.getByText("Published Catalog")).toBeInTheDocument();
+    expect(screen.getByText(/only visible to you until approved/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/pending demo by saeed project, pending review/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/published catalog by catalog artist, published/i)
+    ).toBeInTheDocument();
   });
 
   it("U-PROD-004 — product without a coverArtUrl falls back to the music-note placeholder + initial avatar", () => {

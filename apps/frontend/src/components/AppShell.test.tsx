@@ -79,6 +79,22 @@ describe("U-APP-SHELL-001..004: AppShell", () => {
     expect(screen.getByTestId("theme-toggle")).toBeInTheDocument();
   });
 
+  it("U-ROLE-SWITCH-001b — signed-in shell renders the centered bottom role toggle", () => {
+    useAuthMock.mockReturnValue({
+      user: { uid: "u2", email: "customer@example.com", role: "customer" },
+      loading: false,
+      switchingRole: false,
+      switchRole: vi.fn(),
+    });
+    renderShell();
+
+    expect(screen.getByText(/^admin mode$/i)).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: /turn admin mode on/i })).toHaveAttribute(
+      "aria-checked",
+      "false"
+    );
+  });
+
   it("U-APP-SHELL-004 — mobile drawer can open and close", async () => {
     useAuthMock.mockReturnValue({ user: { uid: "u1", email: "admin@example.com", role: "admin" } });
     const user = userEvent.setup();

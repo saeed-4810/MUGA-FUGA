@@ -31,8 +31,8 @@ export const UserMenu = () => {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="hidden text-right sm:block">
+    <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
+      <div className="border-line bg-surface/80 hidden rounded-2xl border px-3 py-2 text-right shadow-sm sm:block">
         <div className="text-sm font-medium leading-tight">{user.displayName ?? user.email}</div>
         <div className="text-ink-subtle text-xs">
           {t("role.label")}: {t(`role.${user.role}`)}

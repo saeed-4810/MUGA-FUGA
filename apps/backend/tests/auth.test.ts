@@ -111,6 +111,7 @@ const stubEnv: Env = {
   FIREBASE_STORAGE_BUCKET: "muga-test.appspot.com",
   FIREBASE_SERVICE_ACCOUNT_JSON: "",
   INITIAL_ADMIN_EMAILS: ["marcus@muga.app", "founder@muga.app"],
+  EXPERIMENTAL_ROLE_SWITCH_ENABLED: false,
   SENTRY_DSN: "",
   SENTRY_ENVIRONMENT: "test",
   SENTRY_TRACES_SAMPLE_RATE: 0,
@@ -410,5 +411,65 @@ describe("/me + /me/bootstrap — first sign-in role bootstrap", () => {
     const res = await request(app).post("/me/bootstrap").set("authorization", "Bearer xxx");
     expect(res.status).toBe(500);
     expect(res.body.code).toBe("INTERNAL");
+  });
+
+  it("T-ME-004 — experimental role switch updates the caller's own custom claim", async () => {
+    verifyState.mode = "ok-customer";
+    const env: Env = { ...stubEnv, EXPERIMENTAL_ROLE_SWITCH_ENABLED: true };
+    const app = buildMeApp(env);
+
+    const res = await request(app)
+      .post("/me/role")
+      .set("authorization", "Bearer xxx")
+      .send({ role: "admin" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      uid: "usr_saeed_h",
+      email: "saeedh582@gmail.com",
+      role: "admin",
+      experimental: true,
+    });
+    expect(setClaimsCalls).toEqual([{ uid: "usr_saeed_h", claims: { role: "admin" } }]);
+  });
+
+  it("T-ME-005 — experimental role switch rejects unsupported roles", async () => {
+    const env: Env = { ...stubEnv, EXPERIMENTAL_ROLE_SWITCH_ENABLED: true };
+    const app = buildMeApp(env);
+
+    const res = await request(app)
+      .post("/me/role")
+      .set("authorization", "Bearer xxx")
+      .send({ role: "superuser" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("VALIDATION_ERROR");
+    expect(res.body.details.role).toBe("Role must be either admin or customer");
+    expect(setClaimsCalls).toHaveLength(0);
+  });
+
+  it("T-ME-006 — experimental role switch is disabled unless the env flag is true", async () => {
+    const app = buildMeApp();
+
+    const res = await request(app)
+      .post("/me/role")
+      .set("authorization", "Bearer xxx")
+      .send({ role: "admin" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("FORBIDDEN");
+    expect(res.body.message).toBe("Experimental role switch is disabled");
+    expect(setClaimsCalls).toHaveLength(0);
+  });
+
+  it("T-ME-006b — experimental role switch still requires authentication", async () => {
+    const env: Env = { ...stubEnv, EXPERIMENTAL_ROLE_SWITCH_ENABLED: true };
+    const app = buildMeApp(env);
+
+    const res = await request(app).post("/me/role").send({ role: "admin" });
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe("UNAUTHENTICATED");
+    expect(setClaimsCalls).toHaveLength(0);
   });
 });

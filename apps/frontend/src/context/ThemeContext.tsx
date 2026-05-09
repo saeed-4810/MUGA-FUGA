@@ -42,6 +42,8 @@ const systemPrefersDark = (): boolean =>
 const resolve = (t: Theme): ResolvedTheme =>
   t === "system" ? (systemPrefersDark() ? "dark" : "light") : t;
 
+const resolveForHydration = (t: Theme): ResolvedTheme => (t === "dark" ? "dark" : "light");
+
 const applyDocumentClass = (resolved: ResolvedTheme): void => {
   const root = document.documentElement;
   if (resolved === "dark") root.classList.add("dark");
@@ -69,23 +71,32 @@ export const ThemeProvider = ({
   children: ReactNode;
   initialTheme?: Theme;
 }) => {
-  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme(initialTheme));
-  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolve(theme));
+  const [theme, setThemeState] = useState<Theme>(initialTheme);
+  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveForHydration(initialTheme));
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const storedTheme = readStoredTheme(initialTheme);
+    setThemeState(storedTheme);
+    setResolved(resolve(storedTheme));
+    setReady(true);
+  }, [initialTheme]);
 
   // Apply class + persist
   useEffect(() => {
+    if (!ready) return;
     applyDocumentClass(resolved);
     persistTheme(theme);
-  }, [theme, resolved]);
+  }, [ready, theme, resolved]);
 
   // Sync with system changes when theme is "system"
   useEffect(() => {
-    if (theme !== "system") return;
+    if (!ready || theme !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => setResolved(mq.matches ? "dark" : "light");
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
-  }, [theme]);
+  }, [ready, theme]);
 
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);

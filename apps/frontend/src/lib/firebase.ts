@@ -76,6 +76,8 @@ export const getIdToken = async (): Promise<string | null> => {
   return u.getIdToken();
 };
 
+export const getCurrentUser = (): User | null => auth()?.currentUser ?? null;
+
 const readLocalhostE2eToken = (url: string, storage: Storage): string | null => {
   if (new URL(url).hostname !== "localhost") return null;
   return storage.getItem("muga:e2e-user");

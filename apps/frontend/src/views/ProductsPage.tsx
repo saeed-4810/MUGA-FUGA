@@ -74,6 +74,11 @@ const ProductCard = ({ product }: { product: Product }) => {
           </Avatar>
           <span className="min-w-0 truncate">{product.artist.name}</span>
         </div>
+        {product.status === "pending" && (
+          <p className="text-muted-foreground rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs dark:text-amber-100">
+            {t("list.pendingPrivateNote")}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
